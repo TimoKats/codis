@@ -2,6 +2,7 @@ package cosearch
 
 import (
 	coparse "codis/coparse"
+  "strings"
 )
 
 func GetFileTypes(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) map[string]int {
@@ -27,4 +28,19 @@ func GetFileCategories(labeledRows map[coparse.RowLabel]string, orderedKeys []co
     }
   }
   return fileCategories
+}
+
+
+func BasicQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) []string {
+  results := []string{}
+	for _, key := range orderedKeys {
+	  if strings.Contains(labeledRows[key], query) {
+	    results = append(results, labeledRows[key])  
+	  }
+	}
+	if len(results) == 0 {
+	  return []string{"None"}
+	} else {
+	  return results
+	}
 }
