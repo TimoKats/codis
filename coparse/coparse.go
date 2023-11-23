@@ -136,7 +136,7 @@ func iterate(path string) ([]string, []string) {
 			fmt.Print("codis parsing error: ")
 			log.Fatalf(err.Error())
 		}
-		if !info.IsDir() && strings.Contains(info.Name(), ".") { 
+		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".git") { 
 			texts = append(texts, readFile(path))
 			files = append(files, info.Name())
 		}
