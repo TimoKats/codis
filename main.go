@@ -30,7 +30,7 @@ type Styles struct {
 func QueryStyle(color int) *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color(strconv.Itoa(color)) // 10, 11, 12
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(90)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(150)
 	return s
 }
 
@@ -38,7 +38,7 @@ func QueryStyle(color int) *Styles {
 func ResultStyle() *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color("0") 
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(90).Height(15)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(150).Height(10)
 	return s
 }
 
@@ -62,13 +62,13 @@ type Query struct {
 }
 
 func New(query Query) *model {
-	queryStyle := QueryStyle(11)
+	queryStyle := QueryStyle(10)
 	resultStyle := ResultStyle()
 	queryField := textinput.New() 
 	queryField.Placeholder = "press / to start querying..."
 	resultField := textarea.New()
-	resultField.SetWidth(80)
-	resultField.SetHeight(15)
+	resultField.SetWidth(140)
+	resultField.SetHeight(10)
 	resultField.ShowLineNumbers = false
 	return &model{queryIndex: 0, resultIndex:0, query: query, 
 		queryField: queryField, resultField: resultField, 
@@ -96,22 +96,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "esc":
 					m.queryField.Reset()
 					m.resultField.Reset()
+					m.resultIndex = 0
 					return m, nil
 				case "enter":
+					m.resultIndex = 0
 					m.query.query = m.queryField.Value()
 					m.queryField.Reset()
-					m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, labeledRows, orderedKeys)
+					if m.queryIndex == 0 {
+						m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, labeledRows, orderedKeys)
+					} else {
+						m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, labeledRows, orderedKeys)
+					}
 					m.resultField.SetValue(m.query.result[m.resultIndex])
 					return m, nil
 				case "ctrl+j":
 					m.queryField.Reset()
-					m.queryIndex = (m.queryIndex + 1) % 2
-					m.queryStyle = QueryStyle(((m.queryIndex + 1) % 2) + 10)
+					m.resultField.Reset()
+					if m.resultIndex > 0 {
+						m.resultIndex = (m.resultIndex - 1) % len(m.query.result)
+					} else {
+						m.resultIndex = len(m.query.result) - 1
+					}
+					m.resultField.SetValue(m.query.result[m.resultIndex])
 				case "ctrl+k":
 					m.queryField.Reset()
 					m.resultField.Reset()
 					m.resultIndex = (m.resultIndex + 1) % len(m.query.result)
 					m.resultField.SetValue(m.query.result[m.resultIndex])
+				case "tab":
+					m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
+					m.queryStyle = QueryStyle((m.queryIndex % 3) + 10)
 			}
 	}
 	m.queryField, cmd = m.queryField.Update(msg)
@@ -171,7 +185,7 @@ func tempCodis() {
 
 func main() {
 	tempCodis()
-	query := Query{"", []string{"None"}, []string{"None"}, []string{"basic search", "explorative seach"}}
+	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search"}}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
