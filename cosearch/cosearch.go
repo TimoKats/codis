@@ -90,14 +90,14 @@ func findMaxMap(unsortedResults map[coparse.RowLabel]float64) coparse.RowLabel {
 
 func computeFuzzyScore(line string, query string) float64 {
   scores := []float64{}
-  for _, word := range splitAny(line, " ,.()[]{}") {
+  for _, word := range splitAny(line, " ,.()[]{}/") {
     score := 0.0
     for _, character := range strings.SplitAfter(query,"") {
-      if strings.Contains(strings.ToLower(word), strings.ToLower(character)) {
+      if strings.Contains(strings.ToLower(word), strings.ToLower(character)) && len(word) < len(query)*5 {
         score += 1.0
       }
     }
-    scores = append(scores, score/float64(len(word)))
+    scores = append(scores, score)
   }
   return findMax(scores)
 }
