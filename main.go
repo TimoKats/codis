@@ -1,3 +1,9 @@
+/* 
+** @name: main 
+** @author: Timo Kats
+** @description: Contains the TUI and calls search/parsing functions. 
+*/
+
 package main
 
 import (
@@ -20,7 +26,7 @@ import (
 var currentDirectory, _ = os.Getwd()
 var labeledRows, orderedKeys = coparse.ReturnLabels(currentDirectory)
 
-// view functions
+// structs 
 
 type Styles struct {
 	BorderColor lipgloss.Color
@@ -30,15 +36,14 @@ type Styles struct {
 func QueryStyle(color int) *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color(strconv.Itoa(color)) // 10, 11, 12
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(150)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120)
 	return s
 }
-
 
 func ResultStyle() *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color("0") 
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(150).Height(10)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120).Height(10)
 	return s
 }
 
@@ -61,13 +66,17 @@ type Query struct {
 	queryType []string
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func New(query Query) *model {
 	queryStyle := QueryStyle(10)
 	resultStyle := ResultStyle()
 	queryField := textinput.New() 
 	queryField.Placeholder = "press / to start querying..."
 	resultField := textarea.New()
-	resultField.SetWidth(140)
+	resultField.SetWidth(120)
 	resultField.SetHeight(10)
 	resultField.ShowLineNumbers = false
 	return &model{queryIndex: 0, resultIndex:0, query: query, 
@@ -76,10 +85,18 @@ func New(query Query) *model {
 	}
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -118,11 +135,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.resultIndex = len(m.query.result) - 1
 					}
 					m.resultField.SetValue(m.query.result[m.resultIndex])
+					return m, nil
 				case "ctrl+k":
 					m.queryField.Reset()
 					m.resultField.Reset()
 					m.resultIndex = (m.resultIndex + 1) % len(m.query.result)
 					m.resultField.SetValue(m.query.result[m.resultIndex])
+					return m, nil
 				case "tab":
 					m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
 					m.queryStyle = QueryStyle((m.queryIndex % 3) + 10)
@@ -132,6 +151,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd	
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func (m model) View() string {
   return lipgloss.Place(
 		m.width,
@@ -162,14 +185,20 @@ func (m model) View() string {
 	)
 }
 
-// other functions
-
+/* 
+** @name: 
+** @description: 
+*/
 func printLabels(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) {
 	for _, key := range orderedKeys {
 		fmt.Println(key, labeledRows[key])
 	}
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func tempCodis() {
 	currentDirectory, _ := os.Getwd()
 	labeledRows, orderedKeys := coparse.ReturnLabels(currentDirectory)
@@ -183,6 +212,10 @@ func tempCodis() {
 	}
 }
 
+/* 
+** @name: 
+** @description: 
+*/
 func main() {
 	tempCodis()
 	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search"}}
