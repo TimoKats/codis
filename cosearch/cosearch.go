@@ -10,6 +10,7 @@ import (
   "strconv"
   "regexp"
   "strings"
+  "math"
 
 	coparse "codis/coparse"
 	coutils "codis/coutils"
@@ -33,39 +34,34 @@ func formatResult(index int, labeledRows map[coparse.RowLabel]string, orderedKey
   return result
 }
 
-
 /* 
 ** @name: computeFuzzyScore 
 ** @description: Computes the highest "fuzzy" score on a line of code given a query. 
 */
-func computeFuzzyScore(line string, query string) float64 {
-  scores := []float64{}
-  for _, word := range coutils.SplitAny(line, " ,.()[]{}/") {
-    score := 0.0
-    for _, character := range strings.SplitAfter(query,"") {
-      if strings.Contains(strings.ToLower(word), strings.ToLower(character)) && len(word) < len(query) * 4 {
-        score += 1.0
+func computeFuzzyScore(line string, query string) int { // maybe create bool function to prevent long statements
+  score, tempScore := 0, 0
+  prevIndex, queryIndex := 0, 0
+  for index, character := range strings.SplitAfter(line,"") {
+    if len(query) - 1 > queryIndex {
+      if strings.ToLower(string(query[queryIndex])) == strings.ToLower(character) && math.Abs(float64(prevIndex)-float64(index)) <= 1 {
+        score += 1
+        queryIndex += 1
+        prevIndex = index
+      } else if len(query) - 2 > queryIndex && strings.ToLower(string(query[queryIndex + 1])) == strings.ToLower(character) {
+        score += 1
+        queryIndex += 2
+        prevIndex = index
+      } else if math.Abs(float64(prevIndex)-float64(index)) >= 2 && strings.ToLower(string(query[0])) == strings.ToLower(character) {
+        queryIndex = 1
+        score = 1
+        prevIndex = index
+        if tempScore > score { score = tempScore }
       }
     }
-    scores = append(scores, score)
   }
-  return coutils.FindMaxSlice(scores)
+  if tempScore > score { score = tempScore }
+  return score
 }
-
-/* 
-** @name: sortFuzzyResults
-** @description: returns the top (20) results from a collection of fuzzy scores. 
-*/
-func sortFuzzyResults(unsortedResults map[coparse.RowLabel]float64) []coparse.RowLabel {
-  var topResults []coparse.RowLabel
-  for i := 0; i < 20; i++ {
-    maxKey := coutils.FindMaxMap(unsortedResults)
-    topResults = append(topResults, maxKey)
-    delete(unsortedResults, maxKey)
-  } 
-  return topResults
-}
-
 
 /* 
 ** @name: BasicQuery 
@@ -73,11 +69,10 @@ func sortFuzzyResults(unsortedResults map[coparse.RowLabel]float64) []coparse.Ro
 */
 func BasicQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
   var reQuery, err = regexp.Compile(query)
+  results, locations := []string{}, []string{}
   if err != nil {
     return []string{"invalid query"}, []string{"None"}
   }
-  results := []string{}
-  locations := []string{}
 	for index, key := range orderedKeys {
 	  if reQuery.MatchString(labeledRows[key]) {
 	    results = append(results, formatResult(index, labeledRows, orderedKeys))
@@ -96,14 +91,18 @@ func BasicQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKe
 ** @description: Returns the top (20) lines with the highest fuzzy scores.  
 */
 func FuzzyQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
-  results := []string{}
-  locations := []string{}
-  tempResults := make(map[coparse.RowLabel]float64)
+  results, locations := []string{}, []string{}
+  fuzzyResults := []coparse.RowLabel{}
+  threshold := int(float64(len(query))/2.0)
   for _, key := range orderedKeys {
-    tempResults[key] = computeFuzzyScore(labeledRows[key], query)
+    if computeFuzzyScore(labeledRows[key], query) > threshold { // this has to be parameterized
+      fuzzyResults = append(fuzzyResults, key)
+    }
   }
-  sortedResults := sortFuzzyResults(tempResults) 
-  for _, key := range sortedResults {
+  if len(fuzzyResults) == 0 {
+	  return []string{"None"}, []string{"None"}
+  }
+  for _, key := range fuzzyResults {
     index := coutils.FindIndex(orderedKeys, key)
     results = append(results, formatResult(index, labeledRows, orderedKeys))
     locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
@@ -119,7 +118,7 @@ func GetFileTypes(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse
   fileTypes := make(map[string]int)
 	for _, key := range orderedKeys {
 		if _, ok := fileTypes[key.Filetype]; ok {
-		  fileTypes[key.Filetype]++
+		  fileTypes[key.Filetype] += 1
     } else {
       fileTypes[key.Filetype] = 1
     }
@@ -135,7 +134,7 @@ func GetFileCategories(labeledRows map[coparse.RowLabel]string, orderedKeys []co
   fileCategories := make(map[string]int)
 	for _, key := range orderedKeys {
 		if _, ok := fileCategories[key.Category]; ok {
-		  fileCategories[key.Category]++
+		  fileCategories[key.Category] += 1
     } else {
       fileCategories[key.Category] = 1
     }

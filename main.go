@@ -67,8 +67,8 @@ type Query struct {
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: New 
+** @description: Initiates a new TUI with default values.
 */
 func New(query Query) *model {
 	queryStyle := QueryStyle(10)
@@ -83,19 +83,19 @@ func New(query Query) *model {
 		queryField: queryField, resultField: resultField, 
 		queryStyle: queryStyle, resultStyle: resultStyle,
 	}
-}
+ 
 
 /* 
-** @name: 
-** @description: 
+** @name: Init(
+** @description: Mandetory(?) function that starts the TUI.
 */
 func (m model) Init() tea.Cmd {
 	return nil
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: Update
+** @description: Contains the actions for different keypresses in the TUI. 
 */
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -152,8 +152,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: View
+** @description: Returns the layout/placement of the visual elements of the TUI.
 */
 func (m model) View() string {
   return lipgloss.Place(
@@ -186,8 +186,8 @@ func (m model) View() string {
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: printLabels 
+** @description: --- 
 */
 func printLabels(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) {
 	for _, key := range orderedKeys {
@@ -196,8 +196,8 @@ func printLabels(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: tempCodis 
+** @description: --- 
 */
 func tempCodis() {
 	currentDirectory, _ := os.Getwd()
@@ -213,8 +213,8 @@ func tempCodis() {
 }
 
 /* 
-** @name: 
-** @description: 
+** @name: main
+** @description: starts the parser and TUI.
 */
 func main() {
 	tempCodis()
