@@ -28,6 +28,19 @@ func FindIndex(orderedKeys []coparse.RowLabel, queryKey coparse.RowLabel) int {
 }
 
 /* 
+** @name: containsString 
+** @description: Returns true if a list contains a string. 
+*/
+func ContainsString(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+/* 
 ** @name: SplitAny 
 ** @description: Splits a string based on a set of characters/runes. 
 */
@@ -67,3 +80,21 @@ func FindMaxMap(unsortedResults map[coparse.RowLabel]float64) coparse.RowLabel {
   }
   return highestKey
 }
+
+
+/* 
+** @name: ResponsiveTab 
+** @description: Returns whitespace with a corrected offset based on a leading character
+*/
+func ResponsiveTab(offsetString string) string {
+  offset := len(offsetString)
+  tabSize := 4
+  result := ""
+  if offset < tabSize {
+    for index := 0; index < tabSize - offset; index++ {
+      result += " "
+    }
+  }
+  return result
+}
+

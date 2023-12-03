@@ -11,6 +11,8 @@ import (
   "regexp"
   "strings"
   "math"
+  "path/filepath"
+  "os"
 
 	coparse "codis/coparse"
 	coutils "codis/coutils"
@@ -22,7 +24,7 @@ import (
 */
 func formatResult(index int, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) string {
   result := "\n\n\n"
-  for i := index-1; i <= index+2; i++ {
+  for i := index-2; i <= index+2; i++ {
     if i >= 0 && i < len(orderedKeys) { 
       if i == index {
         result += strconv.Itoa(i) + ">  " + labeledRows[orderedKeys[i]] + "\n" 
@@ -37,8 +39,9 @@ func formatResult(index int, labeledRows map[coparse.RowLabel]string, orderedKey
 /* 
 ** @name: computeFuzzyScore 
 ** @description: Computes the highest "fuzzy" score on a line of code given a query. 
+** @note: Add a boolean function to shorten the if-statements.
 */
-func computeFuzzyScore(line string, query string) int { // maybe create bool function to prevent long statements
+func computeFuzzyScore(line string, query string) int { 
   score, tempScore := 0, 0
   prevIndex, queryIndex := 0, 0
   for index, character := range strings.SplitAfter(line,"") {
@@ -95,7 +98,7 @@ func FuzzyQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKe
   fuzzyResults := []coparse.RowLabel{}
   threshold := int(float64(len(query))/2.0)
   for _, key := range orderedKeys {
-    if computeFuzzyScore(labeledRows[key], query) > threshold { // this has to be parameterized
+    if computeFuzzyScore(labeledRows[key], query) > threshold { 
       fuzzyResults = append(fuzzyResults, key)
     }
   }
@@ -141,3 +144,16 @@ func GetFileCategories(labeledRows map[coparse.RowLabel]string, orderedKeys []co
   }
   return fileCategories
 }
+
+func Explore(path string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
+  results, locations := []string{}, []string{}
+	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".git") { 
+			results = append(results, path)
+			locations = append(locations, info.Name())
+		}
+		return nil
+	})
+	return results, locations
+}
+

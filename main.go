@@ -19,11 +19,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	coparse "codis/coparse"
 	cosearch "codis/cosearch"
+	coexplore "codis/coexplore"
 )
 
 // global declarations
 
 var currentDirectory, _ = os.Getwd()
+var fullTree, _ = coexplore.NewTree(currentDirectory)
 var labeledRows, orderedKeys = coparse.ReturnLabels(currentDirectory)
 
 // structs 
@@ -36,14 +38,14 @@ type Styles struct {
 func QueryStyle(color int) *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color(strconv.Itoa(color)) // 10, 11, 12
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(100)
 	return s
 }
 
 func ResultStyle() *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color("0") 
-	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(120).Height(10)
+	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(100).Height(20)
 	return s
 }
 
@@ -53,6 +55,7 @@ type model struct {
 	resultIndex int
 	width int
 	height int
+	viewDirOnly bool
 	queryField textinput.Model
 	resultField textarea.Model
 	queryStyle *Styles
@@ -76,17 +79,18 @@ func New(query Query) *model {
 	queryField := textinput.New() 
 	queryField.Placeholder = "press / to start querying..."
 	resultField := textarea.New()
-	resultField.SetWidth(120)
-	resultField.SetHeight(10)
+	resultField.SetWidth(100)
+	resultField.SetHeight(20)
 	resultField.ShowLineNumbers = false
-	return &model{queryIndex: 0, resultIndex:0, query: query, 
-		queryField: queryField, resultField: resultField, 
-		queryStyle: queryStyle, resultStyle: resultStyle,
+	resultField.CharLimit = -1
+	return &model{queryIndex: 0, resultIndex:0, query: query, viewDirOnly: false, 
+	queryField: queryField, resultField: resultField, 
+	queryStyle: queryStyle, resultStyle: resultStyle,
 	}
- 
+} 
 
 /* 
-** @name: Init(
+** @name: Init
 ** @description: Mandetory(?) function that starts the TUI.
 */
 func (m model) Init() tea.Cmd {
@@ -121,10 +125,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.queryField.Reset()
 					if m.queryIndex == 0 {
 						m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, labeledRows, orderedKeys)
-					} else {
+					} else if m.queryIndex == 1 {
 						m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, labeledRows, orderedKeys)
+					} else {
+						m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
 					}
 					m.resultField.SetValue(m.query.result[m.resultIndex])
+					return m, nil
+				case "ctrl+d":
+					if m.queryIndex == 2 {
+						m.viewDirOnly = !m.viewDirOnly
+						m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
+						m.resultField.SetValue(m.query.result[m.resultIndex])
+					}
 					return m, nil
 				case "ctrl+j":
 					m.queryField.Reset()
@@ -218,7 +231,7 @@ func tempCodis() {
 */
 func main() {
 	tempCodis()
-	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search"}}
+	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search", "Explorative search"}}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
