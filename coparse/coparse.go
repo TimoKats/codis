@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	cotypes "codis/cotypes"
 	coutils "codis/coutils"
+	cotypes "codis/cotypes"
 )
 
 // filters
@@ -189,24 +189,48 @@ func ReturnLabels(directory string) (map[cotypes.RowLabel]string, []cotypes.RowL
 	return labeledRows, orderedKeys
 }
 
-func getTopics(text string, fileType string, hasComment bool) []string {
-	if (fileType == "code" && hasComment) || fileType == "textual" {
-		tokens := coutils.SplitAny(text, " .,{}()[]")
-		return coutils.MostCommonTokens(tokens)
+func rankLine(line string, Linenumber int, HasComment bool, category string) (string, int) {
+	rank := 0
+	if category == "code" {
+		if HasComment {
+			rank += 1
+		}
+		if Linenumber < 10 {
+			rank += 2
+		}
+		if strings.Contains(line, "description") && Linenumber < 10 {
+			rank += 5
+		}
+		return line, rank
 	} else {
-		return []string{}
+		return "None", rank
 	}
 }
 	
-// move to other class maybe. cotopics
 func ReturnTopics(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
-	topics := make(map[string][]string)
+	topics := make(map[string]string)
+	ranks := make(map[string]int)
 	for _, key := range orderedKeys {
-		if _, ok := topics[key.FilePath]; ok {
-    	topics[key.FilePath] = append(topics[key.FilePath], getTopics(labeledRows[key], key.Category, key.HasComment)...)
-    } else {
-		  topics[key.FilePath] = getTopics(labeledRows[key], key.Category, key.HasComment)
+		line, rank := rankLine(labeledRows[key], key.Linenumber, key.HasComment, key.Category)
+		if _, ok := topics[key.FilePath]; ok { 
+    	if rank > ranks[key.FilePath] { 
+    		topics[key.FilePath] = line
+    		ranks[key.FilePath] = rank
+    	} 
+    } else if rank >= 1 {
+    	topics[key.FilePath] = line
+		  ranks[key.FilePath] = rank 
     }
 	}
-	return coutils.MapSliceToString(topics)
+	return coutils.FormatTopics(topics)
+}
+
+func ReturnCategories(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
+	categories := make(map[string]string)
+	for _, key := range orderedKeys {
+		if _, ok := categories[key.FilePath]; !ok {
+			categories[key.FilePath] = key.Category
+    } 
+	}
+	return categories 
 }

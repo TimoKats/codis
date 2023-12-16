@@ -26,9 +26,9 @@ func formatResult(index int, labeledRows map[cotypes.RowLabel]string, orderedKey
   for i := index-2; i <= index+2; i++ {
     if i >= 0 && i < len(orderedKeys) { 
       if i == index {
-        result += strconv.Itoa(i) + ">  " + coutils.CropString(labeledRows[orderedKeys[i]], 75)
+        result += strconv.Itoa(i) + ">  " + coutils.CropString(labeledRows[orderedKeys[i]], 75, "\n")
       } else {
-        result += strconv.Itoa(i) + "|  " + coutils.CropString(labeledRows[orderedKeys[i]],75)
+        result += strconv.Itoa(i) + "|  " + coutils.CropString(labeledRows[orderedKeys[i]],75, "\n")
       }
     } 
   } 
@@ -112,19 +112,3 @@ func FuzzyQuery(query string) ([]string, []string) {
   return results, locations 
 }
 
-/* 
-** @name: GetFileTypes
-** @description: Temporary function 
-*/
-//func GetFileTypes(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]int {
-//  fileTypes := make(map[string]int)
-//	for _, key := range coinit.OrderedKeys {
-//		if _, ok := fileTypes[key.Filetype]; ok {
-//		  fileTypes[key.Filetype] += 1
-//    } else {
-//      fileTypes[key.Filetype] = 1
-//    }
-//  }
-//  return fileTypes
-//}
-//

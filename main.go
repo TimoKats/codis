@@ -49,6 +49,7 @@ type model struct {
 	query Query
 	queryIndex int
 	resultIndex int
+	infoIndex int
 	width int
 	height int
 	viewDirOnly bool
@@ -79,9 +80,9 @@ func New(query Query) *model {
 	resultField.SetHeight(20)
 	resultField.ShowLineNumbers = false
 	resultField.CharLimit = -1
-	return &model{queryIndex: 0, resultIndex:0, query: query, viewDirOnly: false, 
-	queryField: queryField, resultField: resultField, 
-	queryStyle: queryStyle, resultStyle: resultStyle,
+	return &model{queryIndex: 0, resultIndex:0, infoIndex: 0,
+	query: query, viewDirOnly: false, queryField: queryField, 
+	resultField: resultField, queryStyle: queryStyle, resultStyle: resultStyle,
 	}
 } 
 
@@ -119,7 +120,7 @@ func KeyEnter(m model) (tea.Model, tea.Cmd) {
 	} else if m.queryIndex == 1 {
 		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query)
 	} else {
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
 	}
 	m.resultField.SetValue(m.query.result[m.resultIndex])
 	return m, nil
@@ -164,13 +165,26 @@ func KeyTab(m model) (tea.Model, tea.Cmd) {
 }
 
 /* 
+** @name: Ctrl+Tab
+** @description: Switches to the types of info boxes in explore mode 
+*/
+func KeyCtrlG(m model) (tea.Model, tea.Cmd) {
+	if m.queryIndex == 2 {
+		m.infoIndex = (m.infoIndex + 1) % 2 // temporary like this
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
+		m.resultField.SetValue(m.query.result[m.resultIndex])
+	}
+	return m, nil
+}
+
+/* 
 ** @name: KeyToggleDir
 ** @description: Switches between file and directory view 
 */
 func KeyToggleDir(m model) (tea.Model, tea.Cmd) {
 	if m.queryIndex == 2 {
 		m.viewDirOnly = !m.viewDirOnly
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
 		m.resultField.SetValue(m.query.result[m.resultIndex])
 	}
 	return m, nil
@@ -205,6 +219,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return KeyForward(m)
 				case "tab":
 					return KeyTab(m)
+				case "ctrl+g":
+					return KeyCtrlG(m)
 			}
 	}
 	m.queryField, cmd = m.queryField.Update(msg)

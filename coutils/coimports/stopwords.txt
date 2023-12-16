@@ -717,7 +717,6 @@ noone
 nor
 normally
 nos
-not
 noted
 nothing
 notwithstanding
@@ -1305,6 +1304,8 @@ array
 slice
 //
 *
+**
+***
 /*
 #
 ##
@@ -1313,4 +1314,6 @@ import
 var
 make
 that
+function
+functions
 

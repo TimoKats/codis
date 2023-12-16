@@ -11,13 +11,14 @@ import (
   "bufio"
   "math"
   "strings"
+  "unicode"
 
 	cotypes "codis/cotypes"
 )
 
 // globals
 
-var Stopwords = readLines("../coinit/coimports/Stopwords.txt")
+var Stopwords = readLines("coutils/coimports/stopwords.txt")
 
 func readLines(path string) []string {
     file, err := os.Open(path)
@@ -37,11 +38,11 @@ func readLines(path string) []string {
 ** @name: CropString
 ** @description: Truncnates a string based on a max threshold. 
 */
-func CropString(line string, max int) string {
+func CropString(line string, max int, end string) string {
   if len(line) < max {
-    return line + "\n"
+    return line + end 
   } else {
-    return line[:max] + "\n"
+    return line[:max] + end 
   }
 }
 
@@ -101,41 +102,28 @@ func SplitAny(s string, seps string) []string {
     return strings.FieldsFunc(s, splitter)
 }
 
-func MapSliceToString(mapping map[string][]string) map[string]string {
+func hasSymbol(str string) bool {
+    for _, letter := range str {
+        if unicode.IsSymbol(letter) || letter == '@' || letter == '_' {
+            return true
+        }
+    }
+    return false
+}
+
+func FormatTopics(mapping map[string]string) map[string]string {
   newMapping := make(map[string]string)
   for key, value := range mapping {
-    if len(value) >= 4 {
-      newMapping[key] = strings.Join(value[:4], ", ")
-    } else {
-      newMapping[key] = strings.Join(value, ", ")
-    }
-  }
-  return newMapping
-}
-
-func topKeys(mapping map[string]int, numKeys int) []string {
-  keys := make([]string, 0, len(mapping))
-  for k := range mapping {
-    keys = append(keys, k)
-    if len(keys) > numKeys {
-      return keys
-    }
-  }
-  return keys
-}
-
-func MostCommonTokens(tokens []string) []string {
-  tokenCount := make(map[string]int)
-  for _, token := range tokens {
-    if (len(token) > 3 && len(token) < 7) && !ContainsString(Stopwords, token) { 
-		  if _, ok := tokenCount[token]; ok {
-		    tokenCount[token] = 1
-      } else {
-    	  tokenCount[token] += 1
+    tokens := SplitAny(value, " _,.;(){}[]")
+    tempTokens := []string{}
+    for _, token := range tokens {
+      if !hasSymbol(token) && !ContainsString(Stopwords, strings.ToLower(token)) {
+        tempTokens = append(tempTokens, token)
       }
     }
+    newMapping[key] = CropString(strings.Join(tempTokens, ", "), 30, "") 
   }
-  return topKeys(tokenCount, 2) 
+  return newMapping
 }
 
 /* 
