@@ -6,7 +6,9 @@ import (
 	"time"
 	"strings"
 	"strconv"
+
 	coutils "codis/coutils"
+	coinit "codis/coinit"
 )
 
 // globals
@@ -37,6 +39,11 @@ type Node struct {
 	Children []*Node   `json:"children"` 
 	Parent   *Node     `json:"-"`
 }
+
+// infobox related functions
+
+
+// filetree related functions
 
 func NewTree(root string) (result *Node, err error) { 
 	absRoot, err := filepath.Abs(root)
@@ -78,13 +85,16 @@ func NewTree(root string) (result *Node, err error) {
 // make a boolean funcion that check the level-thing
 func printTree(node *Node, tablevel string, pastFolders []string, currentLevel int, maxLevel int, dirOnly bool) {
 	id += 1
+	line := ""
 	idString := strconv.Itoa(id)
 	if len(node.Children) == 0 && !dirOnly {
-		fileTree += idString + coutils.ResponsiveTab(idString) + "|" + tablevel + "- " + node.Info.Name + "\n"
+		line = idString + coutils.ResponsiveTab(idString) + "|" + tablevel + "- " + node.Info.Name 
+		fileTree += line + coutils.FormatInfoBox(line, coinit.Topics[node.FullPath])
 	} else {
 		for _, child := range node.Children {
 			if !coutils.ContainsString(pastFolders, node.FullPath) {
-				fileTree += idString + coutils.ResponsiveTab(idString) + "|" + tablevel + "/ " + node.Info.Name + "\n"
+				line = idString + coutils.ResponsiveTab(idString) + "|" + tablevel + "/ " + node.Info.Name 
+				fileTree += line + coutils.FormatInfoBox(line, "") 
 				pastFolders = append(pastFolders, node.FullPath)
 			}
 			if currentLevel < maxLevel && !strings.Contains(node.FullPath, ".git") {
@@ -127,7 +137,8 @@ func splitFileTree(fileTree string) ([]string, []string) {
 	return pages, locations
 }
 
-// generate fulltree one and pass as parameter!
+// runner function
+
 func Show(fullTree *Node, currentLevel int, maxLevel int, zoomLevel string, dirOnly bool) ([]string, []string) {
 	selectedPath = ""
   id, selectedId = -1, -1

@@ -11,10 +11,9 @@ import (
   "regexp"
   "strings"
   "math"
-  "path/filepath"
-  "os"
 
-	coparse "codis/coparse"
+  coinit "codis/coinit"
+	cotypes "codis/cotypes"
 	coutils "codis/coutils"
 )
 
@@ -22,14 +21,14 @@ import (
 ** @name: formatResult 
 ** @description: Takes the result (index) and returns a string that shows the lines around it.
 */
-func formatResult(index int, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) string {
+func formatResult(index int, labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) string {
   result := "\n\n\n"
   for i := index-2; i <= index+2; i++ {
     if i >= 0 && i < len(orderedKeys) { 
       if i == index {
-        result += strconv.Itoa(i) + ">  " + labeledRows[orderedKeys[i]] + "\n" 
+        result += strconv.Itoa(i) + ">  " + coutils.CropString(labeledRows[orderedKeys[i]], 75)
       } else {
-        result += strconv.Itoa(i) + "|  " + labeledRows[orderedKeys[i]] + "\n" 
+        result += strconv.Itoa(i) + "|  " + coutils.CropString(labeledRows[orderedKeys[i]],75)
       }
     } 
   } 
@@ -70,15 +69,15 @@ func computeFuzzyScore(line string, query string) int {
 ** @name: BasicQuery 
 ** @description: Returns lines that contain a subquery. 
 */
-func BasicQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
+func BasicQuery(query string) ([]string, []string) {
   var reQuery, err = regexp.Compile(query)
   results, locations := []string{}, []string{}
   if err != nil {
     return []string{"invalid query"}, []string{"None"}
   }
-	for index, key := range orderedKeys {
-	  if reQuery.MatchString(labeledRows[key]) {
-	    results = append(results, formatResult(index, labeledRows, orderedKeys))
+	for index, key := range coinit.OrderedKeys {
+	  if reQuery.MatchString(coinit.LabeledRows[key]) {
+	    results = append(results, formatResult(index, coinit.LabeledRows, coinit.OrderedKeys))
 	    locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
 	  }
 	}
@@ -93,12 +92,12 @@ func BasicQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKe
 ** @name: FuzzyQuery
 ** @description: Returns the top (20) lines with the highest fuzzy scores.  
 */
-func FuzzyQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
+func FuzzyQuery(query string) ([]string, []string) {
   results, locations := []string{}, []string{}
-  fuzzyResults := []coparse.RowLabel{}
+  fuzzyResults := []cotypes.RowLabel{}
   threshold := int(float64(len(query))/2.0)
-  for _, key := range orderedKeys {
-    if computeFuzzyScore(labeledRows[key], query) > threshold { 
+  for _, key := range coinit.OrderedKeys {
+    if computeFuzzyScore(coinit.LabeledRows[key], query) > threshold { 
       fuzzyResults = append(fuzzyResults, key)
     }
   }
@@ -106,8 +105,8 @@ func FuzzyQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKe
 	  return []string{"None"}, []string{"None"}
   }
   for _, key := range fuzzyResults {
-    index := coutils.FindIndex(orderedKeys, key)
-    results = append(results, formatResult(index, labeledRows, orderedKeys))
+    index := coutils.FindIndex(coinit.OrderedKeys, key)
+    results = append(results, formatResult(index, coinit.LabeledRows, coinit.OrderedKeys))
     locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
   } 
   return results, locations 
@@ -117,43 +116,15 @@ func FuzzyQuery(query string, labeledRows map[coparse.RowLabel]string, orderedKe
 ** @name: GetFileTypes
 ** @description: Temporary function 
 */
-func GetFileTypes(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) map[string]int {
-  fileTypes := make(map[string]int)
-	for _, key := range orderedKeys {
-		if _, ok := fileTypes[key.Filetype]; ok {
-		  fileTypes[key.Filetype] += 1
-    } else {
-      fileTypes[key.Filetype] = 1
-    }
-  }
-  return fileTypes
-}
-
-/* 
-** @name: GetFileCategories
-** @description: Temporary function 
-*/
-func GetFileCategories(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) map[string]int {
-  fileCategories := make(map[string]int)
-	for _, key := range orderedKeys {
-		if _, ok := fileCategories[key.Category]; ok {
-		  fileCategories[key.Category] += 1
-    } else {
-      fileCategories[key.Category] = 1
-    }
-  }
-  return fileCategories
-}
-
-func Explore(path string, labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) ([]string, []string) {
-  results, locations := []string{}, []string{}
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".git") { 
-			results = append(results, path)
-			locations = append(locations, info.Name())
-		}
-		return nil
-	})
-	return results, locations
-}
-
+//func GetFileTypes(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]int {
+//  fileTypes := make(map[string]int)
+//	for _, key := range coinit.OrderedKeys {
+//		if _, ok := fileTypes[key.Filetype]; ok {
+//		  fileTypes[key.Filetype] += 1
+//    } else {
+//      fileTypes[key.Filetype] = 1
+//    }
+//  }
+//  return fileTypes
+//}
+//

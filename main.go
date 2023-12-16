@@ -7,8 +7,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"log"
 	"strconv"
 
@@ -17,16 +15,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	tea "github.com/charmbracelet/bubbletea"
-	coparse "codis/coparse"
+	coinit "codis/coinit"
 	cosearch "codis/cosearch"
 	coexplore "codis/coexplore"
 )
 
-// global declarations
+// globals
 
-var currentDirectory, _ = os.Getwd()
-var fullTree, _ = coexplore.NewTree(currentDirectory)
-var labeledRows, orderedKeys = coparse.ReturnLabels(currentDirectory)
+var fullTree, _ = coexplore.NewTree(coinit.CurrentDirectory)
 
 // structs 
 
@@ -97,6 +93,89 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+// keypresses
+
+/* 
+** @name: KeyEscape 
+** @description: Empties the current set of results. 
+*/
+func KeyEscape(m model) (tea.Model, tea.Cmd) {
+	m.queryField.Reset()
+	m.resultField.Reset()
+	m.resultIndex = 0
+	return m, nil
+}
+
+/* 
+** @name: KeyEnter 
+** @description: Runs the selected query. 
+*/
+func KeyEnter(m model) (tea.Model, tea.Cmd) {
+	m.resultIndex = 0
+	m.query.query = m.queryField.Value()
+	m.queryField.Reset()
+	if m.queryIndex == 0 {
+		m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query)
+	} else if m.queryIndex == 1 {
+		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query)
+	} else {
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
+	}
+	m.resultField.SetValue(m.query.result[m.resultIndex])
+	return m, nil
+} 
+
+/* 
+** @name: KeyBack 
+** @description: Switches to the previous search result. 
+*/
+func KeyBack(m model) (tea.Model, tea.Cmd) {
+	m.queryField.Reset()
+	m.resultField.Reset()
+	if m.resultIndex > 0 {
+		m.resultIndex = (m.resultIndex - 1) % len(m.query.result)
+	} else {
+		m.resultIndex = len(m.query.result) - 1
+	}
+	m.resultField.SetValue(m.query.result[m.resultIndex])
+	return m, nil
+} 
+
+/* 
+** @name: KeyForward 
+** @description: Switches to the next search result. 
+*/
+func KeyForward(m model) (tea.Model, tea.Cmd) {
+	m.queryField.Reset()
+	m.resultField.Reset()
+	m.resultIndex = (m.resultIndex + 1) % len(m.query.result)
+	m.resultField.SetValue(m.query.result[m.resultIndex])
+	return m, nil
+} 
+
+/* 
+** @name: Tab
+** @description: Switches to the next search function.
+*/
+func KeyTab(m model) (tea.Model, tea.Cmd) {
+	m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
+	m.queryStyle = QueryStyle((m.queryIndex % 3) + 10)
+	return m, nil
+}
+
+/* 
+** @name: KeyToggleDir
+** @description: Switches between file and directory view 
+*/
+func KeyToggleDir(m model) (tea.Model, tea.Cmd) {
+	if m.queryIndex == 2 {
+		m.viewDirOnly = !m.viewDirOnly
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
+		m.resultField.SetValue(m.query.result[m.resultIndex])
+	}
+	return m, nil
+}
+
 /* 
 ** @name: Update
 ** @description: Contains the actions for different keypresses in the TUI. 
@@ -115,49 +194,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.queryField.Focus()
 					return m, nil
 				case "esc":
-					m.queryField.Reset()
-					m.resultField.Reset()
-					m.resultIndex = 0
-					return m, nil
+					return KeyEscape(m)
 				case "enter":
-					m.resultIndex = 0
-					m.query.query = m.queryField.Value()
-					m.queryField.Reset()
-					if m.queryIndex == 0 {
-						m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, labeledRows, orderedKeys)
-					} else if m.queryIndex == 1 {
-						m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, labeledRows, orderedKeys)
-					} else {
-						m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
-					}
-					m.resultField.SetValue(m.query.result[m.resultIndex])
-					return m, nil
+					return KeyEnter(m)
 				case "ctrl+d":
-					if m.queryIndex == 2 {
-						m.viewDirOnly = !m.viewDirOnly
-						m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly)
-						m.resultField.SetValue(m.query.result[m.resultIndex])
-					}
-					return m, nil
+					return KeyToggleDir(m)
 				case "ctrl+j":
-					m.queryField.Reset()
-					m.resultField.Reset()
-					if m.resultIndex > 0 {
-						m.resultIndex = (m.resultIndex - 1) % len(m.query.result)
-					} else {
-						m.resultIndex = len(m.query.result) - 1
-					}
-					m.resultField.SetValue(m.query.result[m.resultIndex])
-					return m, nil
+					return KeyBack(m)
 				case "ctrl+k":
-					m.queryField.Reset()
-					m.resultField.Reset()
-					m.resultIndex = (m.resultIndex + 1) % len(m.query.result)
-					m.resultField.SetValue(m.query.result[m.resultIndex])
-					return m, nil
+					return KeyForward(m)
 				case "tab":
-					m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
-					m.queryStyle = QueryStyle((m.queryIndex % 3) + 10)
+					return KeyTab(m)
 			}
 	}
 	m.queryField, cmd = m.queryField.Update(msg)
@@ -198,39 +245,7 @@ func (m model) View() string {
 	)
 }
 
-/* 
-** @name: printLabels 
-** @description: --- 
-*/
-func printLabels(labeledRows map[coparse.RowLabel]string, orderedKeys []coparse.RowLabel) {
-	for _, key := range orderedKeys {
-		fmt.Println(key, labeledRows[key])
-	}
-}
-
-/* 
-** @name: tempCodis 
-** @description: --- 
-*/
-func tempCodis() {
-	currentDirectory, _ := os.Getwd()
-	labeledRows, orderedKeys := coparse.ReturnLabels(currentDirectory)
-	items := cosearch.GetFileTypes(labeledRows, orderedKeys)
-	for key, value := range items {
-		fmt.Println(key, value)
-	}	
-	items = cosearch.GetFileCategories(labeledRows, orderedKeys)
-	for key, value := range items {
-		fmt.Println(key, value)
-	}
-}
-
-/* 
-** @name: main
-** @description: starts the parser and TUI.
-*/
 func main() {
-	tempCodis()
 	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search", "Explorative search"}}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())

@@ -7,17 +7,67 @@
 package coutils
 
 import (
+  "os"
+  "bufio"
   "math"
   "strings"
 
-	coparse "codis/coparse"
+	cotypes "codis/cotypes"
 )
+
+// globals
+
+var Stopwords = readLines("../coinit/coimports/Stopwords.txt")
+
+func readLines(path string) []string {
+    file, err := os.Open(path)
+    if err != nil {
+        return []string{} 
+    }
+    defer file.Close()
+    var lines []string
+    scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+        lines = append(lines, scanner.Text())
+    }
+    return lines
+}
+
+/* 
+** @name: CropString
+** @description: Truncnates a string based on a max threshold. 
+*/
+func CropString(line string, max int) string {
+  if len(line) < max {
+    return line + "\n"
+  } else {
+    return line[:max] + "\n"
+  }
+}
+
+func tabCorrectedLen(line string) int {
+  len := 0
+  for _, char := range line {
+    if char == '\t' {
+      len += 4
+    } else {
+      len += 1
+    } 
+  }
+  return len
+}
+
+func FormatInfoBox(line string, info string) string {
+  len := tabCorrectedLen(line)
+  whitespace := strings.Repeat(" ", (60-len))
+  return whitespace + "| " + info + "\n"
+}
 
 /* 
 ** @name: FindIndex 
 ** @description: Returns the location of a RowLabel index.
 */
-func FindIndex(orderedKeys []coparse.RowLabel, queryKey coparse.RowLabel) int {
+func FindIndex(orderedKeys []cotypes.RowLabel, queryKey cotypes.RowLabel) int {
   index := 0
   for index, key := range orderedKeys {
     if key == queryKey {
@@ -51,6 +101,43 @@ func SplitAny(s string, seps string) []string {
     return strings.FieldsFunc(s, splitter)
 }
 
+func MapSliceToString(mapping map[string][]string) map[string]string {
+  newMapping := make(map[string]string)
+  for key, value := range mapping {
+    if len(value) >= 4 {
+      newMapping[key] = strings.Join(value[:4], ", ")
+    } else {
+      newMapping[key] = strings.Join(value, ", ")
+    }
+  }
+  return newMapping
+}
+
+func topKeys(mapping map[string]int, numKeys int) []string {
+  keys := make([]string, 0, len(mapping))
+  for k := range mapping {
+    keys = append(keys, k)
+    if len(keys) > numKeys {
+      return keys
+    }
+  }
+  return keys
+}
+
+func MostCommonTokens(tokens []string) []string {
+  tokenCount := make(map[string]int)
+  for _, token := range tokens {
+    if (len(token) > 3 && len(token) < 7) && !ContainsString(Stopwords, token) { 
+		  if _, ok := tokenCount[token]; ok {
+		    tokenCount[token] = 1
+      } else {
+    	  tokenCount[token] += 1
+      }
+    }
+  }
+  return topKeys(tokenCount, 2) 
+}
+
 /* 
 ** @name: FindMaxSlice 
 ** @description: Returns the highest value in an unsorted slice. 
@@ -69,9 +156,9 @@ func FindMaxSlice(arr []float64) float64 {
 ** @name: FindMaxMap 
 ** @description: Returns the key associated with the highest value in a map. 
 */
-func FindMaxMap(unsortedResults map[coparse.RowLabel]float64) coparse.RowLabel {
+func FindMaxMap(unsortedResults map[cotypes.RowLabel]float64) cotypes.RowLabel {
   max := 0.0
-  var highestKey coparse.RowLabel
+  var highestKey cotypes.RowLabel
   for key, score := range unsortedResults {
     if score > max {
       highestKey = key 

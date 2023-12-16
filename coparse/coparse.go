@@ -1,6 +1,6 @@
 package coparse
 
-// add properties in the RowLabeler, like hasDeclaration, hasClassname, hasFunctionname, hasParameters, hasColumnheader, etc... think about this!
+// add properties in the cotypes.RowLabeler, like hasDeclaration, hasClassname, hasFunctionname, hasParameters, hasColumnheader, etc... think about this!
 // you can add this in the rowlabeler and then add the property to struct. That should work. KTHXBAI!
 // TIP: Work with indentation and {}s! Because that can be indicative of classes/funcitons/etc.
 // TIP: Check imports in code files, URLs in all files are ok to search
@@ -11,6 +11,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	cotypes "codis/cotypes"
+	coutils "codis/coutils"
 )
 
 // filters
@@ -18,16 +21,6 @@ import (
 
 // objects
 
-type RowLabel struct {
-	Filename    string
-	Filetype    string
-	Category    string
-	HasObject   bool
-	HasDomain   bool
-	hasFunction bool
-	HasVariableDeclaration bool
-	Linenumber  int
-}
 
 // i/o functions
 
@@ -63,6 +56,17 @@ func HasDomain(row string) bool {
 	domainKeywords := []string{"http://", "https://"}
 	for _, domainKeyword := range domainKeywords {
 		if strings.Contains(row, domainKeyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// check beginning of line
+func HasComment(row string) bool {
+	commentKeywords := []string{"//", "/*", "* "}
+	for _, commentKeyword := range commentKeywords {
+		if strings.Contains(row, commentKeyword) {
 			return true
 		}
 	}
@@ -128,9 +132,10 @@ func hasFunction(row string, fileCategory string) bool {
 
 // labeler functions
 
-func iterate(path string) ([]string, []string) {
+func iterate(path string) ([]string, []string, []string) {
 	var texts []string
 	var files []string
+	var paths []string
 	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Print("codis parsing error: ")
@@ -139,30 +144,35 @@ func iterate(path string) ([]string, []string) {
 		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".git") { 
 			texts = append(texts, readFile(path))
 			files = append(files, info.Name())
+			paths = append(paths, path)
 		}
 		return nil
 	})
-	return texts, files
+	return texts, files, paths
 }
 
-func labelRows(texts []string, files []string) (map[RowLabel]string, []RowLabel) {
-	labeledRows := make(map[RowLabel]string)
-	orderedKeys := []RowLabel{}
+func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowLabel]string, []cotypes.RowLabel) {
+	labeledRows := make(map[cotypes.RowLabel]string)
+	orderedKeys := []cotypes.RowLabel{}
 	for fileIndex, text := range texts {
+		// attributes that are the same for all files
 		Filetype := strings.Split(files[fileIndex], ".")
 		FiletypeString := Filetype[len(Filetype)-1]
 		fileCategory := getFileCategory(FiletypeString)
+		FilePath := paths[fileIndex]
 		for lineIndex, line := range strings.Split(text, "\n") {
 			HasVariableDeclaration := HasVariableDeclaration(line, fileCategory)
 			HasObject := HasObject(line, fileCategory)
 			hasFunction := hasFunction(line, fileCategory)
 			HasDomain := HasDomain(line)
+			HasComment := HasComment(line)
 			// create key 
-			key := RowLabel{Filename: files[fileIndex], 
+			key := cotypes.RowLabel{Filename: files[fileIndex], 
 			Linenumber: lineIndex, Filetype: FiletypeString, 
 			HasVariableDeclaration: HasVariableDeclaration,
-			hasFunction: hasFunction, HasObject: HasObject, 
-			HasDomain: HasDomain, Category: fileCategory}
+			HasFunction: hasFunction, HasObject: HasObject, 
+			HasDomain: HasDomain, Category: fileCategory,
+			HasComment: HasComment, FilePath: FilePath}
 			// create return values
 			labeledRows[key] = line
 			orderedKeys = append(orderedKeys, key)
@@ -173,8 +183,30 @@ func labelRows(texts []string, files []string) (map[RowLabel]string, []RowLabel)
 
 // caller functions
 
-func ReturnLabels(directory string) (map[RowLabel]string, []RowLabel) {
-	texts, files := iterate(directory)
-	labeledRows, orderedKeys := labelRows(texts, files)
+func ReturnLabels(directory string) (map[cotypes.RowLabel]string, []cotypes.RowLabel) {
+	texts, files, paths := iterate(directory)
+	labeledRows, orderedKeys := labelRows(texts, files, paths)
 	return labeledRows, orderedKeys
+}
+
+func getTopics(text string, fileType string, hasComment bool) []string {
+	if (fileType == "code" && hasComment) || fileType == "textual" {
+		tokens := coutils.SplitAny(text, " .,{}()[]")
+		return coutils.MostCommonTokens(tokens)
+	} else {
+		return []string{}
+	}
+}
+	
+// move to other class maybe. cotopics
+func ReturnTopics(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
+	topics := make(map[string][]string)
+	for _, key := range orderedKeys {
+		if _, ok := topics[key.FilePath]; ok {
+    	topics[key.FilePath] = append(topics[key.FilePath], getTopics(labeledRows[key], key.Category, key.HasComment)...)
+    } else {
+		  topics[key.FilePath] = getTopics(labeledRows[key], key.Category, key.HasComment)
+    }
+	}
+	return coutils.MapSliceToString(topics)
 }
