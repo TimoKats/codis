@@ -12,7 +12,7 @@ import (
   "strings"
   "math"
 
-  coinit "codis/coinit"
+  coparse "codis/coparse"
 	cotypes "codis/cotypes"
 	coutils "codis/coutils"
 )
@@ -75,9 +75,9 @@ func BasicQuery(query string) ([]string, []string) {
   if err != nil {
     return []string{"invalid query"}, []string{"None"}
   }
-	for index, key := range coinit.OrderedKeys {
-	  if reQuery.MatchString(coinit.LabeledRows[key]) {
-	    results = append(results, formatResult(index, coinit.LabeledRows, coinit.OrderedKeys))
+	for index, key := range coparse.OrderedKeys {
+	  if reQuery.MatchString(coparse.LabeledRows[key]) {
+	    results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
 	    locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
 	  }
 	}
@@ -96,8 +96,8 @@ func FuzzyQuery(query string) ([]string, []string) {
   results, locations := []string{}, []string{}
   fuzzyResults := []cotypes.RowLabel{}
   threshold := int(float64(len(query))/2.0)
-  for _, key := range coinit.OrderedKeys {
-    if computeFuzzyScore(coinit.LabeledRows[key], query) > threshold { 
+  for _, key := range coparse.OrderedKeys {
+    if computeFuzzyScore(coparse.LabeledRows[key], query) > threshold { 
       fuzzyResults = append(fuzzyResults, key)
     }
   }
@@ -105,8 +105,8 @@ func FuzzyQuery(query string) ([]string, []string) {
 	  return []string{"None"}, []string{"None"}
   }
   for _, key := range fuzzyResults {
-    index := coutils.FindIndex(coinit.OrderedKeys, key)
-    results = append(results, formatResult(index, coinit.LabeledRows, coinit.OrderedKeys))
+    index := coutils.FindIndex(coparse.OrderedKeys, key)
+    results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
     locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
   } 
   return results, locations 

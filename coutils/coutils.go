@@ -20,6 +20,10 @@ import (
 
 var Stopwords = readLines("coutils/coimports/stopwords.txt")
 
+/* 
+** @name: readLines 
+** @description: Reads a text file line by line into a slice.  
+*/
 func readLines(path string) []string {
     file, err := os.Open(path)
     if err != nil {

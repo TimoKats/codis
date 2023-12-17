@@ -15,14 +15,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	tea "github.com/charmbracelet/bubbletea"
-	coinit "codis/coinit"
+	coparse "codis/coparse"
 	cosearch "codis/cosearch"
 	coexplore "codis/coexplore"
 )
 
 // globals
 
-var fullTree, _ = coexplore.NewTree(coinit.CurrentDirectory)
+var fullTree, _ = coexplore.NewTree(coparse.CurrentDirectory)
 
 // structs 
 

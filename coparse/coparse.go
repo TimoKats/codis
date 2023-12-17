@@ -1,5 +1,11 @@
 package coparse
 
+/* 
+** @name: coparse 
+** @author: Timo Kats
+** @description: Walks through and parses the files in the child-directories. 
+*/
+
 // add properties in the cotypes.RowLabeler, like hasDeclaration, hasClassname, hasFunctionname, hasParameters, hasColumnheader, etc... think about this!
 // you can add this in the rowlabeler and then add the property to struct. That should work. KTHXBAI!
 // TIP: Work with indentation and {}s! Because that can be indicative of classes/funcitons/etc.
@@ -16,14 +22,12 @@ import (
 	cotypes "codis/cotypes"
 )
 
-// filters
-
-
-// objects
-
-
 // i/o functions
 
+/* 
+** @name: readFile
+** @description: Returns a string of the filecontents given its name. 
+*/
 func readFile(Filename string) string {
 	fileContent, err := os.ReadFile(Filename)
 	if err != nil {
@@ -35,6 +39,10 @@ func readFile(Filename string) string {
 
 // labeling functions
 
+/* 
+** @name: getFileCategory
+** @description: Assigns a category to a file based on its extension 
+*/
 func getFileCategory(currentExtension string) string {
 	var categories = make(map[string][]string)
 	categories["data"] = []string{"csv","json","sql","xml","xls","xlsx"}
@@ -52,6 +60,10 @@ func getFileCategory(currentExtension string) string {
 	return "undefined"
 }
 
+/* 
+** @name: HasDomain
+** @description: Returns true if a line has a webdomain. 
+*/
 func HasDomain(row string) bool { 
 	domainKeywords := []string{"http://", "https://"}
 	for _, domainKeyword := range domainKeywords {
@@ -63,6 +75,10 @@ func HasDomain(row string) bool {
 }
 
 // check beginning of line
+/* 
+** @name: HasComment 
+** @description: Checks if the current line has a comment in it.
+*/
 func HasComment(row string) bool {
 	commentKeywords := []string{"//", "/*", "* "}
 	for _, commentKeyword := range commentKeywords {
@@ -73,6 +89,10 @@ func HasComment(row string) bool {
 	return false
 }
 
+/* 
+** @name: HasVariableDeclaration
+** @description: Returns true if a line has a variable declaration
+*/
 func HasVariableDeclaration(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{":=","=","let ","var "}
 	illegalKeywords := []string{"==", "!=", "//", "/*", "#"}
@@ -92,6 +112,10 @@ func HasVariableDeclaration(row string, fileCategory string) bool {
 	return false
 }
 
+/* 
+** @name: HasObject 
+** @description: Returns true if a line defines an object/class.
+*/
 func HasObject(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{"class ", "struct ", "enum "}
 	illegalKeywords := []string{"=", ":=", "//", "/*", "#"}
@@ -111,6 +135,10 @@ func HasObject(row string, fileCategory string) bool {
 	return false
 }
 
+/* 
+** @name: hasFunction
+** @description: Returns true if the current line declares a function. 
+*/
 func hasFunction(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{"def ", "fun ", "fn ", "func "}
 	illegalKeywords := []string{"//", "/*", "#"}
@@ -132,6 +160,10 @@ func hasFunction(row string, fileCategory string) bool {
 
 // labeler functions
 
+/* 
+** @name: iterate
+** @description: Walks through all files in the child directories and returns their contents
+*/
 func iterate(path string) ([]string, []string, []string) {
 	var texts []string
 	var files []string
@@ -141,7 +173,7 @@ func iterate(path string) ([]string, []string, []string) {
 			fmt.Print("codis parsing error: ")
 			log.Fatalf(err.Error())
 		}
-		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".git") { 
+		if !info.IsDir() && strings.Contains(info.Name(), ".") && !strings.Contains(path, ".exe") && !strings.Contains(path, ".git") { 
 			texts = append(texts, readFile(path))
 			files = append(files, info.Name())
 			paths = append(paths, path)
@@ -151,6 +183,10 @@ func iterate(path string) ([]string, []string, []string) {
 	return texts, files, paths
 }
 
+/* 
+** @name: labelRows
+** @description: Creates a rowlabel object for each line of read content.
+*/
 func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowLabel]string, []cotypes.RowLabel) {
 	labeledRows := make(map[cotypes.RowLabel]string)
 	orderedKeys := []cotypes.RowLabel{}
@@ -183,12 +219,20 @@ func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowL
 
 // caller functions
 
+/* 
+** @name: ReturnLabels
+** @description: Returns the rowlabel objects and their order.
+*/
 func ReturnLabels(directory string) (map[cotypes.RowLabel]string, []cotypes.RowLabel) {
 	texts, files, paths := iterate(directory)
 	labeledRows, orderedKeys := labelRows(texts, files, paths)
 	return labeledRows, orderedKeys
 }
 
+/* 
+** @name: rankLine
+** @description: Assigns a rank to a line that resembles its informative content.
+*/
 func rankLine(line string, Linenumber int, HasComment bool, category string) (string, int) {
 	rank := 0
 	if category == "code" {
@@ -207,6 +251,10 @@ func rankLine(line string, Linenumber int, HasComment bool, category string) (st
 	}
 }
 	
+/* 
+** @name: ReturnTopics
+** @description: Returns the topics of a file 
+*/
 func ReturnTopics(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
 	topics := make(map[string]string)
 	ranks := make(map[string]int)
@@ -225,6 +273,10 @@ func ReturnTopics(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes
 	return coutils.FormatTopics(topics)
 }
 
+/* 
+** @name: ReturnCategories
+** @description: Returns a map with the topic for each filepath 
+*/
 func ReturnCategories(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
 	categories := make(map[string]string)
 	for _, key := range orderedKeys {
@@ -234,3 +286,11 @@ func ReturnCategories(labeledRows map[cotypes.RowLabel]string, orderedKeys []cot
 	}
 	return categories 
 }
+
+// init parser (functions can be private now...)
+
+var CurrentDirectory, _ = os.Getwd()
+var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
+var Topics = ReturnTopics(LabeledRows, OrderedKeys)
+var Categories = ReturnCategories(LabeledRows, OrderedKeys)
+

@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	coutils "codis/coutils"
-	coinit "codis/coinit"
+	coparse "codis/coparse"
 )
 
 // globals
@@ -21,6 +21,7 @@ var selectedPath = ""
 
 // structs
 
+// add ctrl+f to filter this!
 type FileInfo struct {
 	Name    string      `json:"name"`
 	Size    int64       `json:"size"`
@@ -40,11 +41,12 @@ type Node struct {
 	Parent   *Node     `json:"-"`
 }
 
-// infobox related functions
-
-
 // filetree related functions
 
+/* 
+** @name: NewTree
+** @description: Creates a filetree based on a current directory and a root node object.
+*/
 func NewTree(root string) (result *Node, err error) { 
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
@@ -82,20 +84,27 @@ func NewTree(root string) (result *Node, err error) {
 	return
 }
 
+/* 
+** @name: selectInfoBox 
+** @description: Picks and returns the correct infobox as a string.  
+*/
 func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
 	if escape {
 		return coutils.FormatInfoBox(line, "")
 	}
 	if infoIndex == 0 {
-		return coutils.FormatInfoBox(line, coinit.Topics[node.FullPath])
+		return coutils.FormatInfoBox(line, coparse.Topics[node.FullPath])
 	} else if infoIndex == 1 {
-		return coutils.FormatInfoBox(line, coinit.Categories[node.FullPath])
+		return coutils.FormatInfoBox(line, coparse.Categories[node.FullPath])
 	} else {
 		return "ERROR"
 	}
 }
 
-// make a boolean funcion that check the level-thing
+/* 
+** @name: printTree
+** @description: Creates a string that contains the file tree.
+*/
 func printTree(node *Node, tablevel string, pastFolders []string, currentLevel int, maxLevel int, dirOnly bool, infoIndex int) {
 	id += 1
 	line := ""
@@ -117,6 +126,10 @@ func printTree(node *Node, tablevel string, pastFolders []string, currentLevel i
 	}
 }
 
+/* 
+** @name: selectDirectory
+** @description: Picks the correct root directory for the file tree based on a zoom level.
+*/
 func selectDirectory(selectedLine int, pastFolders []string, node *Node) {
 	selectedId += 1
 	if selectedId != selectedLine {
@@ -133,6 +146,10 @@ func selectDirectory(selectedLine int, pastFolders []string, node *Node) {
 	}
 }
 
+/* 
+** @name: splitFileTree 
+** @description: Creates different pages to fit a large filetree (so it returns a slice) 
+*/
 func splitFileTree(fileTree string) ([]string, []string) {
 	pages := []string{}
 	locations := []string{}
@@ -150,8 +167,12 @@ func splitFileTree(fileTree string) ([]string, []string) {
 	return pages, locations
 }
 
-// runner function
+// caller function
 
+/* 
+** @name: Show
+** @description: Caller function that prints the filetree based on some parameters.  
+*/
 func Show(fullTree *Node, currentLevel int, maxLevel int, zoomLevel string, dirOnly bool, infoIndex int) ([]string, []string) {
 	selectedPath = ""
   id, selectedId = -1, -1
