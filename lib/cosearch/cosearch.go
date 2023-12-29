@@ -12,9 +12,9 @@ import (
   "strings"
   "math"
 
-  coparse "codis/coparse"
-	cotypes "codis/cotypes"
-	coutils "codis/coutils"
+  coparse "codis/lib/coparse"
+	cotypes "codis/lib/cotypes"
+	coutils "codis/lib/coutils"
 )
 
 /* 

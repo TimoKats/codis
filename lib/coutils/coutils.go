@@ -13,12 +13,12 @@ import (
   "strings"
   "unicode"
 
-	cotypes "codis/cotypes"
+	cotypes "codis/lib/cotypes"
 )
 
 // globals
 
-var Stopwords = readLines("coutils/coimports/stopwords.txt")
+var Stopwords = readLines("lib/coutils/coimports/stopwords.txt")
 
 /* 
 ** @name: readLines 
@@ -104,6 +104,15 @@ func SplitAny(s string, seps string) []string {
         return strings.ContainsRune(seps, r)
     }
     return strings.FieldsFunc(s, splitter)
+}
+
+func HasAlpha(str string) bool {
+    for _, letter := range str {
+        if !unicode.IsSymbol(letter) {
+            return true
+        }
+    }
+    return false
 }
 
 func hasSymbol(str string) bool {

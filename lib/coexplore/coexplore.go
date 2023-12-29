@@ -7,8 +7,8 @@ import (
 	"strings"
 	"strconv"
 
-	coutils "codis/coutils"
-	coparse "codis/coparse"
+	coutils "codis/lib/coutils"
+	coparse "codis/lib/coparse"
 )
 
 // globals
@@ -87,8 +87,11 @@ func NewTree(root string) (result *Node, err error) {
 /* 
 ** @name: selectInfoBox 
 ** @description: Picks and returns the correct infobox as a string.  
-*/
+*/ // USE FULLPATH THING IN CODEPENDENCIES ALSO, JUST PREPEND THE WORKING DIRECTORY
 func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
+	if id == 0  && escape {
+		return coutils.FormatInfoBox(line, "showing: " + coparse.InfoBoxCategories[infoIndex])
+	}
 	if escape {
 		return coutils.FormatInfoBox(line, "")
 	}
@@ -96,8 +99,14 @@ func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
 		return coutils.FormatInfoBox(line, coparse.Topics[node.FullPath])
 	} else if infoIndex == 1 {
 		return coutils.FormatInfoBox(line, coparse.Categories[node.FullPath])
+	} else if infoIndex == 2 {
+		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsFunction[node.FullPath]))
+	} else if infoIndex == 3 {
+		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsObject[node.FullPath]))
+	} else if infoIndex == 4 {
+		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsDomain[node.FullPath]))
 	} else {
-		return "ERROR"
+		return "None"
 	}
 }
 

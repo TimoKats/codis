@@ -6,11 +6,6 @@ package coparse
 ** @description: Walks through and parses the files in the child-directories. 
 */
 
-// add properties in the cotypes.RowLabeler, like hasDeclaration, hasClassname, hasFunctionname, hasParameters, hasColumnheader, etc... think about this!
-// you can add this in the rowlabeler and then add the property to struct. That should work. KTHXBAI!
-// TIP: Work with indentation and {}s! Because that can be indicative of classes/funcitons/etc.
-// TIP: Check imports in code files, URLs in all files are ok to search
-
 import (
 	"log"
 	"os"
@@ -18,9 +13,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	coutils "codis/coutils"
-	cotypes "codis/cotypes"
+	coutils "codis/lib/coutils"
+	cotypes "codis/lib/cotypes"
 )
+
+// globals
+
+var codeStarted = false
 
 // i/o functions
 
@@ -47,7 +46,7 @@ func getFileCategory(currentExtension string) string {
 	var categories = make(map[string][]string)
 	categories["data"] = []string{"csv","json","sql","xml","xls","xlsx"}
 	categories["web"] = []string{"html","css","scss", "erb"}
-	categories["code"] = []string{"rb","c","cc","cpp","py","js","java","go"}
+	categories["code"] = []string{"rb","c","cc","cpp","py","js","java","go", "h"}
 	categories["compiled"] = []string{"dll","exe"}
 	categories["textual"] = []string{"txt","md"}
 	for Category, extensions := range categories {
@@ -65,7 +64,7 @@ func getFileCategory(currentExtension string) string {
 ** @description: Returns true if a line has a webdomain. 
 */
 func HasDomain(row string) bool { 
-	domainKeywords := []string{"http://", "https://"}
+	domainKeywords := []string{"http://", "https://", ".com", ".nl"}
 	for _, domainKeyword := range domainKeywords {
 		if strings.Contains(row, domainKeyword) {
 			return true
@@ -74,7 +73,25 @@ func HasDomain(row string) bool {
 	return false
 }
 
-// check beginning of line
+// DONE
+func getImportedFile(line string, paths []string, files []string) string {
+	for index, file := range files {
+		if strings.Contains(line, file) || strings.Contains(line, strings.Split(file, ".")[0]) {
+			return paths[index][len(CurrentDirectory):]
+		} 
+	}
+	return ""
+}
+
+// DONE
+func importedCode(row string, HasComment bool, files []string, paths []string, fileCategory string) string {
+	if fileCategory == "code" && !codeStarted && !HasComment && coutils.HasAlpha(row) {
+		return getImportedFile(row, paths, files)
+	} else {
+		return ""
+	}
+}
+
 /* 
 ** @name: HasComment 
 ** @description: Checks if the current line has a comment in it.
@@ -106,6 +123,7 @@ func HasVariableDeclaration(row string, fileCategory string) bool {
 	}
 	for _, declaritiveKeyword := range declaritiveKeywords {
 		if strings.Contains(row, declaritiveKeyword) {
+			codeStarted = true
 			return true
 		}
 	}
@@ -129,6 +147,7 @@ func HasObject(row string, fileCategory string) bool {
 	}
 	for _, declaritiveKeyword := range declaritiveKeywords {
 		if strings.Contains(row, declaritiveKeyword) {
+			codeStarted = true
 			return true
 		}
 	}
@@ -152,6 +171,7 @@ func hasFunction(row string, fileCategory string) bool {
 	}
 	for _, declaritiveKeyword := range declaritiveKeywords {
 		if strings.Contains(row, declaritiveKeyword) {
+			codeStarted = true
 			return true
 		}
 	}
@@ -196,23 +216,27 @@ func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowL
 		FiletypeString := Filetype[len(Filetype)-1]
 		fileCategory := getFileCategory(FiletypeString)
 		FilePath := paths[fileIndex]
+		codeStarted = false
 		for lineIndex, line := range strings.Split(text, "\n") {
 			HasVariableDeclaration := HasVariableDeclaration(line, fileCategory)
 			HasObject := HasObject(line, fileCategory)
 			hasFunction := hasFunction(line, fileCategory)
 			HasDomain := HasDomain(line)
 			HasComment := HasComment(line)
+			importedCode := importedCode(line, HasComment, files, paths, fileCategory)
 			// create key 
 			key := cotypes.RowLabel{Filename: files[fileIndex], 
 			Linenumber: lineIndex, Filetype: FiletypeString, 
 			HasVariableDeclaration: HasVariableDeclaration,
 			HasFunction: hasFunction, HasObject: HasObject, 
 			HasDomain: HasDomain, Category: fileCategory,
-			HasComment: HasComment, FilePath: FilePath}
+			HasComment: HasComment, FilePath: FilePath,
+			ImportedCode: importedCode}
 			// create return values
 			labeledRows[key] = line
 			orderedKeys = append(orderedKeys, key)
 		}
+		fmt.Println("Parsed: ", files[fileIndex])
 	}
 	return labeledRows, orderedKeys
 }
@@ -287,10 +311,55 @@ func ReturnCategories(labeledRows map[cotypes.RowLabel]string, orderedKeys []cot
 	return categories 
 }
 
+func ReturnTypeCounts(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel, lineType string) map[string]int {
+	counts := make(map[string]int)
+	for _, key := range orderedKeys {
+		if _, ok := counts[key.FilePath]; ok {
+			if lineType == "function" && key.HasFunction {
+				counts[key.FilePath] += 1 
+			} else if lineType == "object" && key.HasObject {
+				counts[key.FilePath] += 1 
+			} else if lineType == "domain" && key.HasDomain {
+				counts[key.FilePath] += 1 
+			}
+		} else if lineType == "function" && key.HasFunction {
+			counts[key.FilePath] = 1
+		} else if lineType == "object" && key.HasObject {
+				counts[key.FilePath] = 1
+		} else if lineType == "domain" && key.HasDomain {
+				counts[key.FilePath] = 1
+		} 
+	}
+	return counts 
+}
+
+// import functions
+
+func ReturnImports(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string][]string {
+	imports := make(map[string][]string)
+	for _, key := range orderedKeys {
+		if key.ImportedCode != "" {
+			if _, ok := imports[key.FilePath[len(CurrentDirectory):]]; ok {
+				if !coutils.ContainsString(imports[key.FilePath[len(CurrentDirectory):]], key.ImportedCode) {
+					imports[key.FilePath[len(CurrentDirectory):]] = append(imports[key.FilePath[len(CurrentDirectory):]], key.ImportedCode)
+				}
+			} else if !strings.Contains(key.ImportedCode, key.FilePath[len(CurrentDirectory):]) {
+				imports[key.FilePath[len(CurrentDirectory):]] = []string{key.ImportedCode}
+			}
+		}
+	}
+	return imports 
+}
+
 // init parser (functions can be private now...)
 
 var CurrentDirectory, _ = os.Getwd()
 var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
 var Topics = ReturnTopics(LabeledRows, OrderedKeys)
+var InfoBoxCategories = []string{"topics", "types", "#functions", "#objects", "#web domains"}
 var Categories = ReturnCategories(LabeledRows, OrderedKeys)
+var TypeCountsFunction = ReturnTypeCounts(LabeledRows, OrderedKeys, "function")
+var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
+var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
+var Imports = ReturnImports(LabeledRows, OrderedKeys)
 

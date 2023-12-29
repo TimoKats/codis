@@ -7,6 +7,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 
@@ -15,9 +16,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	tea "github.com/charmbracelet/bubbletea"
-	coparse "codis/coparse"
-	cosearch "codis/cosearch"
-	coexplore "codis/coexplore"
+	coparse "codis/lib/coparse"
+	cosearch "codis/lib/cosearch"
+	coexplore "codis/lib/coexplore"
+	codependencies "codis/lib/codependencies"
 )
 
 // globals
@@ -32,7 +34,7 @@ type Styles struct {
 }
 
 func QueryStyle(color int) *Styles {
-	s := new(Styles)
+	s:= new(Styles)
 	s.BorderColor = lipgloss.Color(strconv.Itoa(color)) // 10, 11, 12
 	s.InputField = lipgloss.NewStyle().BorderForeground(s.BorderColor).BorderStyle(lipgloss.NormalBorder()).Padding(1).Width(100)
 	return s
@@ -119,8 +121,10 @@ func KeyEnter(m model) (tea.Model, tea.Cmd) {
 		m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query)
 	} else if m.queryIndex == 1 {
 		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query)
-	} else {
+	} else if m.queryIndex == 2 {
 		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
+	} else {
+		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
 	}
 	m.resultField.SetValue(m.query.result[m.resultIndex])
 	return m, nil
@@ -170,8 +174,12 @@ func KeyTab(m model) (tea.Model, tea.Cmd) {
 */
 func KeyCtrlG(m model) (tea.Model, tea.Cmd) {
 	if m.queryIndex == 2 {
-		m.infoIndex = (m.infoIndex + 1) % 2 // temporary like this
+		m.infoIndex = (m.infoIndex + 1) % len(coparse.InfoBoxCategories) // temporary like this
 		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
+		m.resultField.SetValue(m.query.result[m.resultIndex])
+	} else if m.queryIndex == 3 {
+		m.infoIndex = (m.infoIndex + 1) % len(coparse.InfoBoxCategories) // temporary like this
+		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
 		m.resultField.SetValue(m.query.result[m.resultIndex])
 	}
 	return m, nil
@@ -262,7 +270,8 @@ func (m model) View() string {
 }
 
 func main() {
-	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search", "Explorative search"}}
+	fmt.Println(coparse.Imports)
+	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search"}}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
