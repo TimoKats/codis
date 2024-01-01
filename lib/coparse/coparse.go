@@ -333,8 +333,6 @@ func ReturnTypeCounts(labeledRows map[cotypes.RowLabel]string, orderedKeys []cot
 	return counts 
 }
 
-// import functions
-
 func ReturnImports(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string][]string {
 	imports := make(map[string][]string)
 	for _, key := range orderedKeys {
@@ -351,6 +349,18 @@ func ReturnImports(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotype
 	return imports 
 }
 
+// context related parsing
+
+func ReturnUniqueCategories(orderedKeys []cotypes.RowLabel) []string {
+	uniqueFileTypes := []string{}
+	for _, key := range orderedKeys {
+		if !coutils.ContainsString(uniqueFileTypes, key.Category) {
+			uniqueFileTypes = append(uniqueFileTypes, key.Category)
+		}
+	}
+	return uniqueFileTypes
+}
+
 // init parser (functions can be private now...)
 
 var CurrentDirectory, _ = os.Getwd()
@@ -362,4 +372,4 @@ var TypeCountsFunction = ReturnTypeCounts(LabeledRows, OrderedKeys, "function")
 var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
 var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
 var Imports = ReturnImports(LabeledRows, OrderedKeys)
-
+var ContextCategories = ReturnUniqueCategories(OrderedKeys)

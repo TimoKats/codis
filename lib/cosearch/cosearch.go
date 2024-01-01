@@ -69,14 +69,14 @@ func computeFuzzyScore(line string, query string) int {
 ** @name: BasicQuery 
 ** @description: Returns lines that contain a subquery. 
 */
-func BasicQuery(query string) ([]string, []string) {
+func BasicQuery(query string, contextCategories []string) ([]string, []string) {
   var reQuery, err = regexp.Compile(query)
   results, locations := []string{}, []string{}
   if err != nil {
     return []string{"invalid query"}, []string{"None"}
   }
 	for index, key := range coparse.OrderedKeys {
-	  if reQuery.MatchString(coparse.LabeledRows[key]) {
+	  if reQuery.MatchString(coparse.LabeledRows[key]) && (len(contextCategories) == 0 || coutils.ContainsString(contextCategories, key.Category)) {
 	    results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
 	    locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
 	  }

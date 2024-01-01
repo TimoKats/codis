@@ -5,7 +5,7 @@ package cotypes
 type RowLabel struct {
 	Filename    string
 	Filetype    string
-	FilePath 	string
+	FilePath 		string
 	Category    string
 	HasObject   bool
 	HasDomain   bool

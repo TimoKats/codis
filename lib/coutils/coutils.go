@@ -7,36 +7,12 @@
 package coutils
 
 import (
-  "os"
-  "bufio"
   "math"
   "strings"
   "unicode"
 
 	cotypes "codis/lib/cotypes"
 )
-
-// globals
-
-var Stopwords = readLines("lib/coutils/coimports/stopwords.txt")
-
-/* 
-** @name: readLines 
-** @description: Reads a text file line by line into a slice.  
-*/
-func readLines(path string) []string {
-    file, err := os.Open(path)
-    if err != nil {
-        return []string{} 
-    }
-    defer file.Close()
-    var lines []string
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        lines = append(lines, scanner.Text())
-    }
-    return lines
-}
 
 /* 
 ** @name: CropString
@@ -96,6 +72,37 @@ func ContainsString(s []string, e string) bool {
 }
 
 /* 
+** @name: containsint
+** @description: Returns true if a list contains an integer.
+*/
+func ContainsInt(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func DeleteInt(s []int, e int) []int {
+  newSlice := []int{}
+  for _, item := range s {
+    if item != e {
+      newSlice = append(newSlice, item)
+    }
+  }
+  return newSlice
+}
+
+func SubsetSlice(s []string, i []int) []string {
+  newSlice := []string{}
+  for _, index := range i {
+    newSlice = append(newSlice, s[index])
+  }
+  return newSlice
+}
+
+/* 
 ** @name: SplitAny 
 ** @description: Splits a string based on a set of characters/runes. 
 */
@@ -130,11 +137,11 @@ func FormatTopics(mapping map[string]string) map[string]string {
     tokens := SplitAny(value, " _,.;(){}[]")
     tempTokens := []string{}
     for _, token := range tokens {
-      if !hasSymbol(token) && !ContainsString(Stopwords, strings.ToLower(token)) {
+      if !hasSymbol(token) && (len(token) > 3 || strings.ToLower(token) == "not") && !strings.Contains(token, "\n") {
         tempTokens = append(tempTokens, token)
       }
     }
-    newMapping[key] = CropString(strings.Join(tempTokens, ", "), 30, "") 
+    newMapping[key] = CropString(strings.Join(tempTokens, ", "), 28, "")
   }
   return newMapping
 }

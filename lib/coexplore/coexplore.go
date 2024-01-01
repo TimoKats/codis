@@ -89,9 +89,6 @@ func NewTree(root string) (result *Node, err error) {
 ** @description: Picks and returns the correct infobox as a string.  
 */ // USE FULLPATH THING IN CODEPENDENCIES ALSO, JUST PREPEND THE WORKING DIRECTORY
 func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
-	if id == 0  && escape {
-		return coutils.FormatInfoBox(line, "showing: " + coparse.InfoBoxCategories[infoIndex])
-	}
 	if escape {
 		return coutils.FormatInfoBox(line, "")
 	}
@@ -159,16 +156,16 @@ func selectDirectory(selectedLine int, pastFolders []string, node *Node) {
 ** @name: splitFileTree 
 ** @description: Creates different pages to fit a large filetree (so it returns a slice) 
 */
-func splitFileTree(fileTree string) ([]string, []string) {
+func splitFileTree(fileTree string, infoIndex int) ([]string, []string) {
 	pages := []string{}
 	locations := []string{}
-	tempPage := ""
+	tempPage := coutils.FormatInfoBox("", "showing: " + coparse.InfoBoxCategories[infoIndex])
 	for index, line := range strings.Split(fileTree, "\n") {
 		tempPage += line + "\n"
 		if index % 15 == 0 && index != 0 {
 			pages = append(pages, tempPage)
 			locations = append(locations, "file explorer")
-			tempPage = ""
+			tempPage = coutils.FormatInfoBox("", "showing: " + coparse.InfoBoxCategories[infoIndex] + "\n")
 		}	
 	}
 	pages = append(pages, tempPage)
@@ -195,6 +192,6 @@ func Show(fullTree *Node, currentLevel int, maxLevel int, zoomLevel string, dirO
 		fileTree = ""
     printTree(fullTree, "\t", []string{}, currentLevel, maxLevel, dirOnly, infoIndex)
   }
-  return splitFileTree(fileTree) 
+  return splitFileTree(fileTree, infoIndex) 
 }
 

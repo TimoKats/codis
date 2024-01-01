@@ -64,16 +64,16 @@ func formatImports(rootFile string, tabLevel string, infoIndex int) {
 	}
 }
 
-func splitDependencyTree(dependencyTree string) ([]string, []string) {
+func splitDependencyTree(dependencyTree string, infoIndex int) ([]string, []string) {
 	pages := []string{}
 	locations := []string{}
-	tempPage := ""
+	tempPage := coutils.FormatInfoBox("", "showing: " + coparse.InfoBoxCategories[infoIndex])
 	for index, line := range strings.Split(dependencyTree, "\n") {
 		tempPage += line + "\n"
 		if index % 15 == 0 && index != 0 {
 			pages = append(pages, tempPage)
 			locations = append(locations, "dependency explorer")
-			tempPage = ""
+			tempPage = coutils.FormatInfoBox("", "showing: " + coparse.InfoBoxCategories[infoIndex] + "\n")
 		}	
 	}
 	pages = append(pages, tempPage)
@@ -82,7 +82,7 @@ func splitDependencyTree(dependencyTree string) ([]string, []string) {
 }
 
 func Show(infoIndex int) ([]string, []string) {
-  dependencyTree = coutils.FormatInfoBox("", "showing: " + coparse.InfoBoxCategories[infoIndex])
+	dependencyTree = ""
   id = 0
 	idString := strconv.Itoa(id)
 	rootFiles := getRootFiles()
@@ -92,5 +92,5 @@ func Show(infoIndex int) ([]string, []string) {
 			formatImports(rootFile, "\t", infoIndex)
 		}
 	}
-	return splitDependencyTree(dependencyTree)
+	return splitDependencyTree(dependencyTree, infoIndex)
 }
