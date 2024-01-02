@@ -93,14 +93,12 @@ func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
 		return coutils.FormatInfoBox(line, "")
 	}
 	if infoIndex == 0 {
-		return coutils.FormatInfoBox(line, coparse.Topics[node.FullPath])
-	} else if infoIndex == 1 {
 		return coutils.FormatInfoBox(line, coparse.Categories[node.FullPath])
-	} else if infoIndex == 2 {
+	} else if infoIndex == 1 {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsFunction[node.FullPath]))
-	} else if infoIndex == 3 {
+	} else if infoIndex == 2 {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsObject[node.FullPath]))
-	} else if infoIndex == 4 {
+	} else if infoIndex == 3 {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsDomain[node.FullPath]))
 	} else {
 		return "None"

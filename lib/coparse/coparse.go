@@ -20,8 +20,15 @@ import (
 // globals
 
 var codeStarted = false
-
-// i/o functions
+var CurrentDirectory, _ = os.Getwd()
+var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
+var InfoBoxCategories = []string{"types", "#functions", "#objects", "#web domains"}
+var Categories = ReturnCategories(LabeledRows, OrderedKeys)
+var TypeCountsFunction = ReturnTypeCounts(LabeledRows, OrderedKeys, "function")
+var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
+var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
+var Imports = ReturnImports(LabeledRows, OrderedKeys)
+var ContextCategories = ReturnUniqueCategories(OrderedKeys)
 
 /* 
 ** @name: readFile
@@ -63,7 +70,7 @@ func getFileCategory(currentExtension string) string {
 ** @name: HasDomain
 ** @description: Returns true if a line has a webdomain. 
 */
-func HasDomain(row string) bool { 
+func hasDomain(row string) bool { 
 	domainKeywords := []string{"http://", "https://", ".com", ".nl"}
 	for _, domainKeyword := range domainKeywords {
 		if strings.Contains(row, domainKeyword) {
@@ -96,7 +103,7 @@ func importedCode(row string, HasComment bool, files []string, paths []string, f
 ** @name: HasComment 
 ** @description: Checks if the current line has a comment in it.
 */
-func HasComment(row string) bool {
+func hasComment(row string) bool {
 	commentKeywords := []string{"//", "/*", "* "}
 	for _, commentKeyword := range commentKeywords {
 		if strings.Contains(row, commentKeyword) {
@@ -110,7 +117,7 @@ func HasComment(row string) bool {
 ** @name: HasVariableDeclaration
 ** @description: Returns true if a line has a variable declaration
 */
-func HasVariableDeclaration(row string, fileCategory string) bool { 
+func hasVariableDeclaration(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{":=","=","let ","var "}
 	illegalKeywords := []string{"==", "!=", "//", "/*", "#"}
 	if fileCategory != "code" {
@@ -134,7 +141,7 @@ func HasVariableDeclaration(row string, fileCategory string) bool {
 ** @name: HasObject 
 ** @description: Returns true if a line defines an object/class.
 */
-func HasObject(row string, fileCategory string) bool { 
+func hasObject(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{"class ", "struct ", "enum "}
 	illegalKeywords := []string{"=", ":=", "//", "/*", "#"}
 	if fileCategory != "code" {
@@ -218,20 +225,26 @@ func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowL
 		FilePath := paths[fileIndex]
 		codeStarted = false
 		for lineIndex, line := range strings.Split(text, "\n") {
-			HasVariableDeclaration := HasVariableDeclaration(line, fileCategory)
-			HasObject := HasObject(line, fileCategory)
+			HasVariableDeclaration := hasVariableDeclaration(line, fileCategory)
+			HasObject := hasObject(line, fileCategory)
 			hasFunction := hasFunction(line, fileCategory)
-			HasDomain := HasDomain(line)
-			HasComment := HasComment(line)
+			HasDomain := hasDomain(line)
+			HasComment := hasComment(line)
 			importedCode := importedCode(line, HasComment, files, paths, fileCategory)
 			// create key 
-			key := cotypes.RowLabel{Filename: files[fileIndex], 
-			Linenumber: lineIndex, Filetype: FiletypeString, 
-			HasVariableDeclaration: HasVariableDeclaration,
-			HasFunction: hasFunction, HasObject: HasObject, 
-			HasDomain: HasDomain, Category: fileCategory,
-			HasComment: HasComment, FilePath: FilePath,
-			ImportedCode: importedCode}
+			key := cotypes.RowLabel{
+				Filename: files[fileIndex], 
+				Linenumber: lineIndex+1, 
+				Filetype: FiletypeString, 
+				HasVariableDeclaration: HasVariableDeclaration,
+				HasFunction: hasFunction, 
+				HasObject: HasObject, 
+				HasDomain: HasDomain, 
+				Category: fileCategory,
+				HasComment: HasComment, 
+				FilePath: FilePath,
+				ImportedCode: importedCode,
+			}
 			// create return values
 			labeledRows[key] = line
 			orderedKeys = append(orderedKeys, key)
@@ -251,50 +264,6 @@ func ReturnLabels(directory string) (map[cotypes.RowLabel]string, []cotypes.RowL
 	texts, files, paths := iterate(directory)
 	labeledRows, orderedKeys := labelRows(texts, files, paths)
 	return labeledRows, orderedKeys
-}
-
-/* 
-** @name: rankLine
-** @description: Assigns a rank to a line that resembles its informative content.
-*/
-func rankLine(line string, Linenumber int, HasComment bool, category string) (string, int) {
-	rank := 0
-	if category == "code" {
-		if HasComment {
-			rank += 1
-		}
-		if Linenumber < 10 {
-			rank += 2
-		}
-		if strings.Contains(line, "description") && Linenumber < 10 {
-			rank += 5
-		}
-		return line, rank
-	} else {
-		return "None", rank
-	}
-}
-	
-/* 
-** @name: ReturnTopics
-** @description: Returns the topics of a file 
-*/
-func ReturnTopics(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel) map[string]string  {
-	topics := make(map[string]string)
-	ranks := make(map[string]int)
-	for _, key := range orderedKeys {
-		line, rank := rankLine(labeledRows[key], key.Linenumber, key.HasComment, key.Category)
-		if _, ok := topics[key.FilePath]; ok { 
-    	if rank > ranks[key.FilePath] { 
-    		topics[key.FilePath] = line
-    		ranks[key.FilePath] = rank
-    	} 
-    } else if rank >= 1 {
-    	topics[key.FilePath] = line
-		  ranks[key.FilePath] = rank 
-    }
-	}
-	return coutils.FormatTopics(topics)
 }
 
 /* 
@@ -361,15 +330,4 @@ func ReturnUniqueCategories(orderedKeys []cotypes.RowLabel) []string {
 	return uniqueFileTypes
 }
 
-// init parser (functions can be private now...)
 
-var CurrentDirectory, _ = os.Getwd()
-var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
-var Topics = ReturnTopics(LabeledRows, OrderedKeys)
-var InfoBoxCategories = []string{"topics", "types", "#functions", "#objects", "#web domains"}
-var Categories = ReturnCategories(LabeledRows, OrderedKeys)
-var TypeCountsFunction = ReturnTypeCounts(LabeledRows, OrderedKeys, "function")
-var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
-var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
-var Imports = ReturnImports(LabeledRows, OrderedKeys)
-var ContextCategories = ReturnUniqueCategories(OrderedKeys)

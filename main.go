@@ -15,8 +15,9 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-
 	tea "github.com/charmbracelet/bubbletea"
+
+	coline "codis/lib/coline"
 	coparse "codis/lib/coparse"
 	coutils "codis/lib/coutils"
 	cosearch "codis/lib/cosearch"
@@ -65,7 +66,9 @@ type model struct {
 	resultField textarea.Model
 	queryStyle *Styles
 	resultStyle *Styles
+	contextIndex int
 	contextCategories []int
+	contextComment []int
 }
 
 type Query struct {
@@ -92,7 +95,7 @@ func New(query Query) *model {
 	return &model{queryIndex: 0, resultIndex:0, infoIndex: 1, formMode: false, formIndex: 0,
 	query: query, viewDirOnly: false, commandMode: false, queryField: queryField, 
 	resultField: resultField, queryStyle: queryStyle, resultStyle: resultStyle,
-	contextCategories: []int{},
+	contextCategories: []int{}, contextComment: []int{1,0}, contextIndex: 0,
 	}
 } 
 
@@ -117,6 +120,54 @@ func KeyEscape(m model) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func KeyEnterSearch (m model) (tea.Model, tea.Cmd) {
+	categoryContext := coutils.SubsetSlice(coparse.ContextCategories, m.contextCategories)
+	infoContext := bool(m.contextComment[0] == 1)
+	if m.queryIndex == 0 { 
+		m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, categoryContext, infoContext)
+	} else if m.queryIndex == 1 {
+		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, categoryContext, infoContext)
+	} else if m.queryIndex == 2 {
+		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
+	} else if m.queryIndex == 3 {
+		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
+	} else {
+		parsedQuery := strings.Split(m.query.query, ">")
+		if len(parsedQuery) == 2 {
+			queriedFilename := parsedQuery[0]
+			queriedLinenumber, _ := strconv.Atoi(parsedQuery[1])
+			m.query.result, m.query.resultLocations = coline.SearchLine(queriedFilename, queriedLinenumber)
+		} else {
+			m.query.result, m.query.resultLocations = []string{"Query not parsed"}, []string{"None"}
+		}
+	}	
+	m.resultField.SetValue(m.query.result[m.resultIndex])
+	return m, nil
+}
+
+func KeyEnterForm(m model) (tea.Model, tea.Cmd) {
+	if m.contextIndex == 0 {
+		if !coutils.ContainsInt(m.contextCategories, m.formIndex) {
+			m.contextCategories = append(m.contextCategories, m.formIndex)
+		} else {
+			m.contextCategories = coutils.DeleteInt(m.contextCategories, m.formIndex)
+		}
+	} else if m.contextIndex == 1 {
+		if m.contextComment[0] == 0 {
+			m.contextComment = []int{1,0}
+		} else {
+			m.contextComment = []int{0,1} 
+		}
+	}
+	return m, nil
+}
+
+func KeyEnterCommand(m model) (tea.Model, tea.Cmd) {
+	m.query.result, m.query.resultLocations = cocommands.ParseCommand(m.query.query)
+	m.resultField.SetValue(m.query.result[m.resultIndex])
+	return m, nil
+}
+
 /* 
 ** @name: KeyEnter 
 ** @description: Runs the selected query. 
@@ -125,25 +176,13 @@ func KeyEnter(m model) (tea.Model, tea.Cmd) {
 	m.resultIndex = 0
 	m.query.query = m.queryField.Value()
 	m.queryField.Reset()
-	if m.queryIndex == 0 && !m.commandMode && !m.formMode { // can this be simplified using a sliceindex>?
-		categoryContext := coutils.SubsetSlice(coparse.ContextCategories, m.contextCategories)
-		m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, categoryContext)
-	} else if m.queryIndex == 1 && !m.commandMode && !m.formMode {
-		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query)
-	} else if m.queryIndex == 2 && !m.commandMode && !m.formMode {
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
-	} else if !m.commandMode && !m.formMode {
-		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
+	if !m.commandMode && !m.formMode {
+		return KeyEnterSearch(m)
 	} else if m.commandMode && !m.formMode {
-		m.query.result, m.query.resultLocations = cocommands.ParseCommand(m.query.query)
+		return KeyEnterCommand(m)
 	} else if !m.commandMode && m.formMode {
-		if !coutils.ContainsInt(m.contextCategories, m.formIndex) {
-			m.contextCategories = append(m.contextCategories, m.formIndex)
-		} else {
-			m.contextCategories = coutils.DeleteInt(m.contextCategories, m.formIndex)
-		}
+		return KeyEnterForm(m)
 	}
-	m.resultField.SetValue(m.query.result[m.resultIndex])
 	return m, nil
 } 
 
@@ -180,9 +219,11 @@ func KeyForward(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches to the next search function.
 */
 func KeyTab(m model) (tea.Model, tea.Cmd) {
-	if !m.commandMode {
+	if !m.commandMode && !m.formMode {
 		m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
-		m.queryStyle = QueryStyle((m.queryIndex % 4) + 10)
+		m.queryStyle = QueryStyle((m.queryIndex % 5) + 10)
+	} else if m.formMode {
+		m.contextIndex = (m.contextIndex + 1) % 2 
 	}
 	return m, nil
 }
@@ -244,14 +285,13 @@ func KeyDown(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches to command mode 
 */
 func KeyColon(m model) (tea.Model, tea.Cmd) {
-	// maybe make a funcion called "empty"
 	m.query.result, m.query.resultLocations = []string{""}, []string{"None"} 
 	m.resultField.SetValue(m.query.result[m.resultIndex])
 	m.commandMode = !m.commandMode
 	if m.commandMode {
 		m.queryStyle = QueryStyle(25)
 	} else {
-		m.queryStyle = QueryStyle((m.queryIndex % 4) + 10)
+		m.queryStyle = QueryStyle((m.queryIndex % 5) + 10)
 	}
 	m.queryField.Focus()
 	return m, nil
@@ -263,7 +303,6 @@ func KeyColon(m model) (tea.Model, tea.Cmd) {
 */
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	//width, height := terminalDimensions()
 	switch msg := msg.(type) {
 		case tea.WindowSizeMsg:
 			m.width = msg.Width
@@ -299,29 +338,82 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return KeyCtrlF(m)
 			}
 		}
-	// window resize too expensive now
-	//m.queryStyle = QueryStyle((m.queryIndex % 4) + 10, m.width)
-	//m.resultStyle = ResultStyle(m.width, m.height)
 	m.queryField, cmd = m.queryField.Update(msg)
 	return m, cmd	
 }
 
-func formView(m model) string {
+// views
+
+func formViewCategories(m model) string {
 	s := strings.Builder{}
-	s.WriteString("Select context\n---\n")
+	s.WriteString("\n\t1   Select categories:\n\n")
 	for i := 0; i < len(coparse.ContextCategories); i++ {
-		if m.formIndex == i {
-			s.WriteString("(X) ")
+		if m.formIndex == i && m.contextIndex == 0 {
+			s.WriteString("\t[X] ")
 		} else if coutils.ContainsInt(m.contextCategories, i) {
-			s.WriteString("(x) ")	
+			s.WriteString("\t[x] ")	
 		} else {
-			s.WriteString("( ) ")
+			s.WriteString("\t[ ] ")
 		}
-		s.WriteString(coparse.ContextCategories[i])
-		s.WriteString("\n")
+		s.WriteString(coparse.ContextCategories[i] + "\n")
 	}
-	s.WriteString("\npress ctrl+c to quit | press ctrl+f to return | press enter to submit choice\n")
 	return s.String()
+}
+
+func formViewComment(m model) string {
+	commentCategories := []string{"include", "don't include"}
+	s := strings.Builder{}
+	s.WriteString("\n\t2   Include comments:\n\n")
+	for i := 0; i < len(commentCategories); i++ {
+		if m.formIndex == i && m.contextIndex == 1 {
+			s.WriteString("\t[X] ")
+		} else if m.contextComment[i] == 1 {
+			s.WriteString("\t[x] ")	
+		} else {
+			s.WriteString("\t[ ] ")
+		}
+		s.WriteString(commentCategories[i] + "\n")
+	}
+	return s.String()
+}
+
+func formView(m model) string { 
+	s := strings.Builder{}
+	s.WriteString(formViewCategories(m))
+	s.WriteString(formViewComment(m))
+	s.WriteString("\n\tpress ctrl+c to quit | press ctrl+f to return | press enter to submit choice | tab to switch \n")
+	return s.String()
+}
+
+func searchView(m model, title string) string {
+  return lipgloss.Place(
+  	m.width,
+  	m.height,
+		lipgloss.Center,
+		lipgloss.Top,
+		lipgloss.JoinVertical(
+			lipgloss.Center, 
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				title,
+				m.queryStyle.InputField.Render(m.queryField.View()),
+			),
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				m.resultStyle.InputField.Render(m.resultField.View()),
+				lipgloss.JoinHorizontal(
+					lipgloss.Left,
+					m.query.resultLocations[m.resultIndex],
+					" | ",
+					strconv.Itoa(m.resultIndex+1),
+					"/",
+					strconv.Itoa(len(m.query.result)),
+					" | (press ctrl+c to quit) | CMode: ",
+					strconv.FormatBool(	m.commandMode),
+				),
+			),
+		),
+	)
 }
 
 /* 
@@ -336,41 +428,15 @@ func (m model) View() string {
 	if m.formMode {
 		return formView(m) 
 	} else {
-  	return lipgloss.Place(
-  		m.width,
-  		m.height,
-			lipgloss.Center,
-			lipgloss.Top,
-			lipgloss.JoinVertical(
-				lipgloss.Center, 
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					//m.query.queryType[m.queryIndex],
-					title,
-					m.queryStyle.InputField.Render(m.queryField.View()),
-				),
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					m.resultStyle.InputField.Render(m.resultField.View()),
-					lipgloss.JoinHorizontal(
-						lipgloss.Left,
-						m.query.resultLocations[m.resultIndex],
-						" | ",
-						strconv.Itoa(m.resultIndex+1),
-						"/",
-						strconv.Itoa(len(m.query.result)),
-						" | (press ctrl+c to quit) | CMode: ",
-						strconv.FormatBool(	m.commandMode),
-					),
-				),
-			),
-		)
+		return searchView(m, title)
 	}
 }
 
+// runner function
 
 func main() {
-	query := Query{"", []string{"None"}, []string{"None"}, []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search"}}
+	queryTypes := []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search", "Line search"}
+	query := Query{"", []string{"None"}, []string{"None"}, queryTypes}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

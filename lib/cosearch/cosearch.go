@@ -69,16 +69,18 @@ func computeFuzzyScore(line string, query string) int {
 ** @name: BasicQuery 
 ** @description: Returns lines that contain a subquery. 
 */
-func BasicQuery(query string, contextCategories []string) ([]string, []string) {
+func BasicQuery(query string, contextCategories []string, contextComment bool) ([]string, []string) {
   var reQuery, err = regexp.Compile(query)
   results, locations := []string{}, []string{}
   if err != nil {
     return []string{"invalid query"}, []string{"None"}
   }
 	for index, key := range coparse.OrderedKeys {
-	  if reQuery.MatchString(coparse.LabeledRows[key]) && (len(contextCategories) == 0 || coutils.ContainsString(contextCategories, key.Category)) {
-	    results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
-	    locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
+	  if (len(contextCategories) == 0 || coutils.ContainsString(contextCategories, key.Category)) && !(key.HasComment && !contextComment) {
+	    if reQuery.MatchString(coparse.LabeledRows[key]) {
+	      results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
+	      locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
+	    }
 	  }
 	}
 	if len(results) == 0 {
@@ -92,13 +94,15 @@ func BasicQuery(query string, contextCategories []string) ([]string, []string) {
 ** @name: FuzzyQuery
 ** @description: Returns the top (20) lines with the highest fuzzy scores.  
 */
-func FuzzyQuery(query string) ([]string, []string) {
+func FuzzyQuery(query string, contextCategories []string, contextComment bool) ([]string, []string) {
   results, locations := []string{}, []string{}
   fuzzyResults := []cotypes.RowLabel{}
   threshold := int(float64(len(query))/2.0)
   for _, key := range coparse.OrderedKeys {
-    if computeFuzzyScore(coparse.LabeledRows[key], query) > threshold { 
-      fuzzyResults = append(fuzzyResults, key)
+	  if (len(contextCategories) == 0 || coutils.ContainsString(contextCategories, key.Category)) && !(key.HasComment && !contextComment) {
+      if computeFuzzyScore(coparse.LabeledRows[key], query) > threshold { 
+        fuzzyResults = append(fuzzyResults, key)
+      }
     }
   }
   if len(fuzzyResults) == 0 {

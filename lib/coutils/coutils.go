@@ -131,21 +131,6 @@ func hasSymbol(str string) bool {
     return false
 }
 
-func FormatTopics(mapping map[string]string) map[string]string {
-  newMapping := make(map[string]string)
-  for key, value := range mapping {
-    tokens := SplitAny(value, " _,.;(){}[]")
-    tempTokens := []string{}
-    for _, token := range tokens {
-      if !hasSymbol(token) && (len(token) > 3 || strings.ToLower(token) == "not") && !strings.Contains(token, "\n") {
-        tempTokens = append(tempTokens, token)
-      }
-    }
-    newMapping[key] = CropString(strings.Join(tempTokens, ", "), 28, "")
-  }
-  return newMapping
-}
-
 /* 
 ** @name: FindMaxSlice 
 ** @description: Returns the highest value in an unsorted slice. 
