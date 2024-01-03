@@ -18,7 +18,6 @@ import (
 )
 
 // globals
-
 var codeStarted = false
 var CurrentDirectory, _ = os.Getwd()
 var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
@@ -29,6 +28,7 @@ var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
 var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
 var Imports = ReturnImports(LabeledRows, OrderedKeys)
 var ContextCategories = ReturnUniqueCategories(OrderedKeys)
+var InvertedIndex = ReturnIndex()
 
 /* 
 ** @name: readFile
@@ -82,7 +82,7 @@ func hasDomain(row string) bool {
 
 // DONE
 func getImportedFile(line string, paths []string, files []string) string {
-	for index, file := range files {
+	for index, file := range files { 
 		if strings.Contains(line, file) || strings.Contains(line, strings.Split(file, ".")[0]) {
 			return paths[index][len(CurrentDirectory):]
 		} 
@@ -294,9 +294,9 @@ func ReturnTypeCounts(labeledRows map[cotypes.RowLabel]string, orderedKeys []cot
 		} else if lineType == "function" && key.HasFunction {
 			counts[key.FilePath] = 1
 		} else if lineType == "object" && key.HasObject {
-				counts[key.FilePath] = 1
+			counts[key.FilePath] = 1
 		} else if lineType == "domain" && key.HasDomain {
-				counts[key.FilePath] = 1
+			counts[key.FilePath] = 1
 		} 
 	}
 	return counts 
@@ -318,8 +318,6 @@ func ReturnImports(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotype
 	return imports 
 }
 
-// context related parsing
-
 func ReturnUniqueCategories(orderedKeys []cotypes.RowLabel) []string {
 	uniqueFileTypes := []string{}
 	for _, key := range orderedKeys {
@@ -330,4 +328,18 @@ func ReturnUniqueCategories(orderedKeys []cotypes.RowLabel) []string {
 	return uniqueFileTypes
 }
 
-
+func ReturnIndex() map[string][]cotypes.IndexLabel {
+  invertedIndex := make(map[string][]cotypes.IndexLabel)
+  for index, key := range OrderedKeys {
+    tokens := coutils.SplitAny(LabeledRows[key], " :;{}().,[]")
+    for _, token := range tokens {
+    	filename := key.FilePath[len(CurrentDirectory):]
+      if _, ok := invertedIndex[token]; !ok && len(token) > 1 {
+        invertedIndex[token] = []cotypes.IndexLabel{cotypes.IndexLabel{filename, key.Category, key.Filetype, key.Linenumber, index}}
+      } else {
+        invertedIndex[token] = append(invertedIndex[token], cotypes.IndexLabel{filename, key.Category, key.Filetype, key.Linenumber, index})
+      }
+    }
+  }
+  return invertedIndex
+}

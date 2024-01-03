@@ -124,7 +124,8 @@ func KeyEnterSearch (m model) (tea.Model, tea.Cmd) {
 	categoryContext := coutils.SubsetSlice(coparse.ContextCategories, m.contextCategories)
 	infoContext := bool(m.contextComment[0] == 1)
 	if m.queryIndex == 0 { 
-		m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, categoryContext, infoContext)
+		//m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, categoryContext, infoContext)
+		m.query.result, m.query.resultLocations = cosearch.BasicQueryTest(m.query.query)
 	} else if m.queryIndex == 1 {
 		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, categoryContext, infoContext)
 	} else if m.queryIndex == 2 {
@@ -285,6 +286,7 @@ func KeyDown(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches to command mode 
 */
 func KeyColon(m model) (tea.Model, tea.Cmd) {
+	m.resultIndex = 0
 	m.query.result, m.query.resultLocations = []string{""}, []string{"None"} 
 	m.resultField.SetValue(m.query.result[m.resultIndex])
 	m.commandMode = !m.commandMode
@@ -408,7 +410,7 @@ func searchView(m model, title string) string {
 					strconv.Itoa(m.resultIndex+1),
 					"/",
 					strconv.Itoa(len(m.query.result)),
-					" | (press ctrl+c to quit) | CMode: ",
+					" | press ctrl+c to quit | press ctrl+f for settings",
 					strconv.FormatBool(	m.commandMode),
 				),
 			),

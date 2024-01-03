@@ -16,3 +16,10 @@ type RowLabel struct {
 	Linenumber  int
 }
 
+type IndexLabel struct {
+  Filename    string
+  Category 		string
+  Filetype 		string
+  Linenumber  int
+  Index       int
+}

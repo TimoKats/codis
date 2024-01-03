@@ -28,7 +28,7 @@ func formatResult(index int, labeledRows map[cotypes.RowLabel]string, orderedKey
       if i == index {
         result += strconv.Itoa(i) + ">  " + coutils.CropString(labeledRows[orderedKeys[i]], 75, "\n")
       } else {
-        result += strconv.Itoa(i) + "|  " + coutils.CropString(labeledRows[orderedKeys[i]],75, "\n")
+    result += strconv.Itoa(i) + "|  " + coutils.CropString(labeledRows[orderedKeys[i]],75, "\n")
       }
     } 
   } 
@@ -83,6 +83,21 @@ func BasicQuery(query string, contextCategories []string, contextComment bool) (
 	    }
 	  }
 	}
+	if len(results) == 0 {
+	  return []string{"None"}, []string{"None"}
+	} else {
+	  return results, locations
+	}
+}
+
+func BasicQueryTest(query string) ([]string, []string) {
+  results, locations := []string{}, []string{}
+  if _, ok := coparse.InvertedIndex[query]; ok {
+    for _, label := range coparse.InvertedIndex[query] {
+	    results = append(results, formatResult(label.Index, coparse.LabeledRows, coparse.OrderedKeys))
+	    locations = append(locations, label.Filename)
+    }
+  }
 	if len(results) == 0 {
 	  return []string{"None"}, []string{"None"}
 	} else {
