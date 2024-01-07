@@ -17,6 +17,7 @@ import (
 // globals
 
 var dependencyTree string
+var antiCircularDependencies []string
 var id = -1
 
 func selectInfoBox(filepath string, line string, infoIndex int) string {
@@ -52,6 +53,7 @@ func GetRootFiles() []string {
 }
 
 func formatImports(rootFile string, tabLevel string, infoIndex int) {
+	antiCircularDependencies = append(antiCircularDependencies, rootFile)
 	for _, file := range coparse.Imports[rootFile] {
 	  line := ""
 		if _, ok := coparse.Imports[file]; ok {
@@ -59,7 +61,9 @@ func formatImports(rootFile string, tabLevel string, infoIndex int) {
 	    idString := strconv.Itoa(id)
 	    line = idString + coutils.ResponsiveTab(idString) + "|" + tabLevel + file
 		  dependencyTree += line + selectInfoBox(file, line, infoIndex)
-			formatImports(file, tabLevel + "\t", infoIndex)
+		  if !coutils.ContainsString(antiCircularDependencies, file) {
+				formatImports(file, tabLevel + "\t", infoIndex)
+		  }
 		} else { // it's a leaf
 	    id += 1
 	    idString := strconv.Itoa(id)
@@ -101,8 +105,10 @@ func Show(infoIndex int, rootFiles []string, query string) ([]string, []string) 
 	dependencyTree = ""
 	idString := strconv.Itoa(id)
 	queriedRootFile := queryRootFile(rootFiles, query)
+	antiCircularDependencies = []string{}
 	if queriedRootFile == "" && len(rootFiles) > 0 {
 		for _, rootFile := range rootFiles {
+			antiCircularDependencies = []string{}
 			idString = strconv.Itoa(id)
 			dependencyTree += idString + coutils.ResponsiveTab(idString) + "|> " + rootFile + "\n"
 			formatImports(rootFile, "\t", infoIndex)

@@ -426,6 +426,7 @@ func (m model) View() string {
 // runner function
 
 func main() {
+	fmt.Println(coparse.Imports, rootFiles)
 	fmt.Println("Codis (alpha version). Last updated: January 2024 By Timo Kats")
 	queryTypes := []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search", "File view"}
 	query := cotypes.Query{"", []string{"None"}, []string{"None"}, queryTypes}
