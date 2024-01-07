@@ -1,3 +1,9 @@
+/* 
+** @name: coexplore
+** @author: Timo Kats
+** @description: Returns a navigateable file explorer.  
+*/
+
 package coexplore
 
 import (
@@ -87,7 +93,7 @@ func NewTree(root string) (result *Node, err error) {
 /* 
 ** @name: selectInfoBox 
 ** @description: Picks and returns the correct infobox as a string.  
-*/ // USE FULLPATH THING IN CODEPENDENCIES ALSO, JUST PREPEND THE WORKING DIRECTORY
+*/ 
 func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
 	if escape {
 		return coutils.FormatInfoBox(line, "")
@@ -100,8 +106,10 @@ func selectInfoBox(node *Node, line string, infoIndex int, escape bool) string {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsObject[node.FullPath]))
 	} else if infoIndex == 3 {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsDomain[node.FullPath]))
+	} else if infoIndex == 4 {
+		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.QueryCounts[node.FullPath]))
 	} else {
-		return "None"
+		return "fuck you"
 	}
 }
 
@@ -182,7 +190,7 @@ func Show(fullTree *Node, currentLevel int, maxLevel int, zoomLevel string, dirO
   id, selectedId = -1, -1
   if zoom, err := strconv.Atoi(zoomLevel); err == nil {
 		selectDirectory(zoom, []string{}, fullTree)
-		var selectedTree, _ =  NewTree(selectedPath)
+		selectedTree, _ :=  NewTree(selectedPath)
 		fileTree = ""
 		id = zoom - 1
     printTree(selectedTree, "\t", []string{}, currentLevel, maxLevel, dirOnly, infoIndex)

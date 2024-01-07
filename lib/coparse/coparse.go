@@ -1,10 +1,10 @@
-package coparse
-
 /* 
 ** @name: coparse 
 ** @author: Timo Kats
 ** @description: Walks through and parses the files in the child-directories. 
 */
+
+package coparse
 
 import (
 	"log"
@@ -18,17 +18,19 @@ import (
 )
 
 // globals
+
 var codeStarted = false
 var CurrentDirectory, _ = os.Getwd()
 var LabeledRows, OrderedKeys = ReturnLabels(CurrentDirectory)
-var InfoBoxCategories = []string{"types", "#functions", "#objects", "#web domains"}
+var InfoBoxCategories = []string{"types", "#functions", "#objects", "#web domains", "last query"}
 var Categories = ReturnCategories(LabeledRows, OrderedKeys)
 var TypeCountsFunction = ReturnTypeCounts(LabeledRows, OrderedKeys, "function")
 var TypeCountsObject = ReturnTypeCounts(LabeledRows, OrderedKeys, "object")
 var TypeCountsDomain = ReturnTypeCounts(LabeledRows, OrderedKeys, "domain")
+var QueryCounts = ReturnEmptyQueryResults()
 var Imports = ReturnImports(LabeledRows, OrderedKeys)
 var ContextCategories = ReturnUniqueCategories(OrderedKeys)
-var InvertedIndex = ReturnIndex()
+var FileOverview, OrderedFiles = ReturnFileOverview()
 
 /* 
 ** @name: readFile
@@ -49,13 +51,13 @@ func readFile(Filename string) string {
 ** @name: getFileCategory
 ** @description: Assigns a category to a file based on its extension 
 */
-func getFileCategory(currentExtension string) string {
+func GetFileCategory(currentExtension string) string {
 	var categories = make(map[string][]string)
-	categories["data"] = []string{"csv","json","sql","xml","xls","xlsx"}
+	categories["data"] = []string{"csv","json","sql","xml"}
 	categories["web"] = []string{"html","css","scss", "erb"}
 	categories["code"] = []string{"rb","c","cc","cpp","py","js","java","go", "h"}
 	categories["compiled"] = []string{"dll","exe"}
-	categories["textual"] = []string{"txt","md"}
+	categories["textual"] = []string{"txt","md", "in"}
 	for Category, extensions := range categories {
 		for  _,extension := range extensions {
 			if extension == currentExtension {
@@ -80,7 +82,6 @@ func hasDomain(row string) bool {
 	return false
 }
 
-// DONE
 func getImportedFile(line string, paths []string, files []string) string {
 	for index, file := range files { 
 		if strings.Contains(line, file) || strings.Contains(line, strings.Split(file, ".")[0]) {
@@ -90,9 +91,10 @@ func getImportedFile(line string, paths []string, files []string) string {
 	return ""
 }
 
-// DONE
 func importedCode(row string, HasComment bool, files []string, paths []string, fileCategory string) string {
 	if fileCategory == "code" && !codeStarted && !HasComment && coutils.HasAlpha(row) {
+		return getImportedFile(row, paths, files)
+	} else if strings.Contains(row, "import") && strings.Contains(row, "include") && strings.Contains(row, "require") && !HasComment {
 		return getImportedFile(row, paths, files)
 	} else {
 		return ""
@@ -104,11 +106,11 @@ func importedCode(row string, HasComment bool, files []string, paths []string, f
 ** @description: Checks if the current line has a comment in it.
 */
 func hasComment(row string) bool {
-	commentKeywords := []string{"//", "/*", "* "}
+	commentKeywords := []string{"//", "#", "*/", "/*"}
 	for _, commentKeyword := range commentKeywords {
 		if strings.Contains(row, commentKeyword) {
 			return true
-		}
+		} 
 	}
 	return false
 }
@@ -119,7 +121,7 @@ func hasComment(row string) bool {
 */
 func hasVariableDeclaration(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{":=","=","let ","var "}
-	illegalKeywords := []string{"==", "!=", "//", "/*", "#"}
+	illegalKeywords := []string{"==", "!=", "//", "/*", "#", "for", "if"}
 	if fileCategory != "code" {
 		return false
 	}
@@ -167,7 +169,7 @@ func hasObject(row string, fileCategory string) bool {
 */
 func hasFunction(row string, fileCategory string) bool { 
 	declaritiveKeywords := []string{"def ", "fun ", "fn ", "func "}
-	illegalKeywords := []string{"//", "/*", "#"}
+	illegalKeywords := []string{"//", "/*", "#", ":="}
 	if fileCategory != "code" {
 		return false
 	}
@@ -221,7 +223,7 @@ func labelRows(texts []string, files []string, paths []string) (map[cotypes.RowL
 		// attributes that are the same for all files
 		Filetype := strings.Split(files[fileIndex], ".")
 		FiletypeString := Filetype[len(Filetype)-1]
-		fileCategory := getFileCategory(FiletypeString)
+		fileCategory := GetFileCategory(FiletypeString)
 		FilePath := paths[fileIndex]
 		codeStarted = false
 		for lineIndex, line := range strings.Split(text, "\n") {
@@ -280,6 +282,16 @@ func ReturnCategories(labeledRows map[cotypes.RowLabel]string, orderedKeys []cot
 	return categories 
 }
 
+func ReturnEmptyQueryResults() map[string]int {
+	categories := make(map[string]int)
+	for _, key := range OrderedKeys {
+		if _, ok := categories[key.FilePath]; !ok {
+			categories[key.FilePath] = 0 
+    } 
+	}
+	return categories 
+}
+
 func ReturnTypeCounts(labeledRows map[cotypes.RowLabel]string, orderedKeys []cotypes.RowLabel, lineType string) map[string]int {
 	counts := make(map[string]int)
 	for _, key := range orderedKeys {
@@ -328,6 +340,7 @@ func ReturnUniqueCategories(orderedKeys []cotypes.RowLabel) []string {
 	return uniqueFileTypes
 }
 
+/* not for this version
 func ReturnIndex() map[string][]cotypes.IndexLabel {
   invertedIndex := make(map[string][]cotypes.IndexLabel)
   for index, key := range OrderedKeys {
@@ -342,4 +355,104 @@ func ReturnIndex() map[string][]cotypes.IndexLabel {
     }
   }
   return invertedIndex
+}
+*/
+
+func addLineToFileOverview(line string, hasObject bool, hasFunction bool) string {
+	start := false
+	cleanedLine := ""
+	if hasFunction {
+		cleanedLine = "\t"
+	} else if !hasObject {
+		return cleanedLine 
+	}
+	for _, char := range line[:len(line)-1] {
+		if char == '(' {
+			return cleanedLine + "\n"
+		}
+		if start {
+			cleanedLine += string(char)
+		}
+		if char == ' ' {
+			start = true
+		}
+	}
+	return cleanedLine + "\n"
+}
+
+func addImportsToFileOverview(imports []string) string {
+	cleanedLine := ""
+	for _, file := range imports {
+		cleanedLine += "\t" + file + "\n"
+	}
+	return cleanedLine
+}
+
+func addFieldsToFileOverview(line string, fileType string, lineNumber int, currentFileOverview string) string {
+	if fileType == "json" {
+		jsonField := coutils.GetJSONFieldname(line)
+		if !strings.Contains(currentFileOverview, jsonField) {
+			return jsonField + "\n"
+		} else {
+			return ""
+		}
+	} else if fileType == "csv" {
+		if lineNumber == 1 {
+			seperator := coutils.GetCSVSeperator(line)
+			return strings.ReplaceAll(line, seperator, "\n")
+		}	else {
+			return ""
+		}
+	} else if lineNumber == 1 {
+		return "file type not supported in current version of codis."
+	} else {
+		return ""
+	}
+}
+
+func addPreviewToFileOverview(line string, lineNumber int) string {
+	if lineNumber <= 15 && len(line) > 60 {
+		return line[:60] + "\n"
+	} else if lineNumber <= 15 {
+		return line + "\n"	
+	} else {
+		return ""
+	}
+}
+
+// add multiple file view for different file types! Also some indicators for imports, data, etc, json fields, etc!
+// get the columns of all file types!
+// also return the ordered filenames for iteration purposes!!!
+func ReturnFileOverview() (map[string][]string, []string) {
+	fileOverview := make(map[string][]string)
+	orderedFiles := []string{}
+	for _, key := range OrderedKeys {
+		if _, ok := fileOverview[key.Filename]; ok {
+			if key.Category == "code" {
+				fileOverview[key.Filename][0] += addLineToFileOverview(LabeledRows[key], key.HasObject, key.HasFunction)
+			} else if key.Category == "data" {
+				fileOverview[key.Filename][0] += addFieldsToFileOverview(LabeledRows[key], key.Filetype, key.Linenumber, fileOverview[key.Filename][0]) 
+				fileOverview[key.Filename][1] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+			} else {
+				fileOverview[key.Filename][0] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+				fileOverview[key.Filename][1] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+			}
+		} else { 
+			orderedFiles = append(orderedFiles, key.Filename)
+			if key.Category == "code" {
+				fileOverview[key.Filename] = []string{"functions and objects:\n---\n","imported files:\n---\n"}
+				fileOverview[key.Filename][0] += addLineToFileOverview(LabeledRows[key], key.HasObject, key.HasFunction)
+				fileOverview[key.Filename][1] += addImportsToFileOverview(Imports[key.FilePath[len(CurrentDirectory):]])
+			} else if key.Category == "data" {
+				fileOverview[key.Filename] = []string{"Fields:\n---\n","Preview:\n---\n"}
+				fileOverview[key.Filename][0] += addFieldsToFileOverview(LabeledRows[key], key.Filetype, key.Linenumber, fileOverview[key.Filename][0]) 
+				fileOverview[key.Filename][1] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+			} else {
+				fileOverview[key.Filename] = []string{"Preview:\n---\n","Preview:\n---\n"}
+				fileOverview[key.Filename][0] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+				fileOverview[key.Filename][1] += addPreviewToFileOverview(LabeledRows[key], key.Linenumber) 
+			}
+		}
+	}
+	return fileOverview, orderedFiles
 }

@@ -131,6 +131,24 @@ func hasSymbol(str string) bool {
     return false
 }
 
+func GetJSONFieldname(line string) string {
+  if strings.Contains(line, ":") {
+    return strings.Split(line, ":")[0]
+  } else {
+    return "" 
+  }
+}
+
+func GetCSVSeperator(line string) string {
+  seperatorCandidates := map[string]int{",":0,";":0,"\t":0}
+  for _, letter := range line {
+		if _, ok := seperatorCandidates[string(letter)]; ok {
+		  seperatorCandidates[string(letter)] += 1
+		}
+  }
+  return FindMaxMapInt(seperatorCandidates)
+}
+
 /* 
 ** @name: FindMaxSlice 
 ** @description: Returns the highest value in an unsorted slice. 
@@ -161,6 +179,17 @@ func FindMaxMap(unsortedResults map[cotypes.RowLabel]float64) cotypes.RowLabel {
   return highestKey
 }
 
+func FindMaxMapInt(unsortedResults map[string]int) string {
+  max := 0
+  var highestKey string 
+  for key, score := range unsortedResults {
+    if score > max {
+      highestKey = key 
+      max = score
+    }
+  }
+  return highestKey
+}
 
 /* 
 ** @name: ResponsiveTab 

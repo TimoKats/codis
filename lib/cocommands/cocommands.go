@@ -1,3 +1,9 @@
+/* 
+** @name: cocommands
+** @author: Timo Kats
+** @description: All the possible results from command mode 
+*/
+
 package cocommands
 
 func info() string {
@@ -27,6 +33,7 @@ func help() []string {
       <tab> to switch between query types
       / to enter query mode
       : to enter command mode
+      <ctrl+f> to change settings
       <enter> to submit query
     `,
     `
@@ -64,13 +71,12 @@ func help() []string {
         <ctrl+k> or <ctrl+j> to iterate between results.
     `,
     `
-    LINE SEARCH:
+    FILE VIEW:
       DESCRIPTION: 
-        (Tries) to show what lines are related to the selected line.
-      QUERY FORMAT:
-        FILENAME>LINENUMBER
+        Displays a file based on a query (all are shown when query is empty) 
       COMMANDS:
         <ctrl+k> or <ctrl+j> to iterate between results.
+        <ctrl+g> to change type of view.
     `,
   }
   return helpString

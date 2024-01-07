@@ -7,6 +7,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"strconv"
@@ -17,18 +18,20 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
 
-	coline "codis/lib/coline"
 	coparse "codis/lib/coparse"
 	coutils "codis/lib/coutils"
+	cotypes "codis/lib/cotypes"
+	cofile "codis/lib/cofile"
 	cosearch "codis/lib/cosearch"
 	coexplore "codis/lib/coexplore"
 	cocommands "codis/lib/cocommands"
 	codependencies "codis/lib/codependencies"
 )
 
-// globals
+// globals that need to remain constant
 
 var fullTree, _ = coexplore.NewTree(coparse.CurrentDirectory)
+var rootFiles = codependencies.GetRootFiles()
 
 // structs 
 
@@ -52,11 +55,8 @@ func ResultStyle() *Styles {
 }
 
 type model struct {
-	query Query
-	queryIndex int
-	resultIndex int
-	formIndex int
-	infoIndex int
+	indecies cotypes.Indecies
+	query cotypes.Query
 	width int
 	height int 
 	viewDirOnly bool
@@ -66,23 +66,16 @@ type model struct {
 	resultField textarea.Model
 	queryStyle *Styles
 	resultStyle *Styles
-	contextIndex int
 	contextCategories []int
 	contextComment []int
-}
-
-type Query struct {
-	query string
-	result []string
-	resultLocations []string
-	queryType []string
 }
 
 /* 
 ** @name: New 
 ** @description: Initiates a new TUI with default values.
 */
-func New(query Query) *model {
+func New(query cotypes.Query) *model {
+	indecies := cotypes.Indecies{QueryIndex:0,ResultIndex:0,InfoIndex:0,FormIndex:1,FileViewIndex:0}
 	queryStyle := QueryStyle(10)
 	resultStyle := ResultStyle()
 	queryField := textinput.New() 
@@ -92,10 +85,10 @@ func New(query Query) *model {
 	resultField.SetHeight(20)
 	resultField.ShowLineNumbers = false
 	resultField.CharLimit = -1
-	return &model{queryIndex: 0, resultIndex:0, infoIndex: 1, formMode: false, formIndex: 0,
-	query: query, viewDirOnly: false, commandMode: false, queryField: queryField, 
+	return &model{formMode: false, indecies: indecies, query: query, 
+	viewDirOnly: false, commandMode: false, queryField: queryField, 
 	resultField: resultField, queryStyle: queryStyle, resultStyle: resultStyle,
-	contextCategories: []int{}, contextComment: []int{1,0}, contextIndex: 0,
+	contextCategories: []int{}, contextComment: []int{1,0},
 	}
 } 
 
@@ -116,44 +109,36 @@ func (m model) Init() tea.Cmd {
 func KeyEscape(m model) (tea.Model, tea.Cmd) {
 	m.queryField.Reset()
 	m.resultField.Reset()
-	m.resultIndex = 0
+	m.indecies.ResultIndex = 0
 	return m, nil
 }
 
 func KeyEnterSearch (m model) (tea.Model, tea.Cmd) {
 	categoryContext := coutils.SubsetSlice(coparse.ContextCategories, m.contextCategories)
 	infoContext := bool(m.contextComment[0] == 1)
-	if m.queryIndex == 0 { 
-		//m.query.result, m.query.resultLocations = cosearch.BasicQuery(m.query.query, categoryContext, infoContext)
-		m.query.result, m.query.resultLocations = cosearch.BasicQueryTest(m.query.query)
-	} else if m.queryIndex == 1 {
-		m.query.result, m.query.resultLocations = cosearch.FuzzyQuery(m.query.query, categoryContext, infoContext)
-	} else if m.queryIndex == 2 {
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
-	} else if m.queryIndex == 3 {
-		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
-	} else {
-		parsedQuery := strings.Split(m.query.query, ">")
-		if len(parsedQuery) == 2 {
-			queriedFilename := parsedQuery[0]
-			queriedLinenumber, _ := strconv.Atoi(parsedQuery[1])
-			m.query.result, m.query.resultLocations = coline.SearchLine(queriedFilename, queriedLinenumber)
-		} else {
-			m.query.result, m.query.resultLocations = []string{"Query not parsed"}, []string{"None"}
-		}
+	if m.indecies.QueryIndex == 0 { 
+		m.query.Result, m.query.ResultLocations = cosearch.BasicQuery(m.query.Query, categoryContext, infoContext)
+	} else if m.indecies.QueryIndex == 1 {
+		m.query.Result, m.query.ResultLocations = cosearch.FuzzyQuery(m.query.Query, categoryContext, infoContext)
+	} else if m.indecies.QueryIndex == 2 {
+		m.query.Result, m.query.ResultLocations = coexplore.Show(fullTree, 0, 5, m.query.Query, m.viewDirOnly, m.indecies.InfoIndex)
+	} else if m.indecies.QueryIndex == 3 {
+		m.query.Result, m.query.ResultLocations = codependencies.Show(m.indecies.InfoIndex, rootFiles, m.query.Query)
+	} else if m.indecies.QueryIndex == 4 {
+		m.query.Result, m.query.ResultLocations = cofile.Show(m.query.Query, m.indecies.FileViewIndex, categoryContext)
 	}	
-	m.resultField.SetValue(m.query.result[m.resultIndex])
+	m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	return m, nil
 }
 
 func KeyEnterForm(m model) (tea.Model, tea.Cmd) {
-	if m.contextIndex == 0 {
-		if !coutils.ContainsInt(m.contextCategories, m.formIndex) {
-			m.contextCategories = append(m.contextCategories, m.formIndex)
+	if m.indecies.ContextIndex == 0 {
+		if !coutils.ContainsInt(m.contextCategories, m.indecies.FormIndex) {
+			m.contextCategories = append(m.contextCategories, m.indecies.FormIndex)
 		} else {
-			m.contextCategories = coutils.DeleteInt(m.contextCategories, m.formIndex)
+			m.contextCategories = coutils.DeleteInt(m.contextCategories, m.indecies.FormIndex)
 		}
-	} else if m.contextIndex == 1 {
+	} else if m.indecies.ContextIndex == 1 {
 		if m.contextComment[0] == 0 {
 			m.contextComment = []int{1,0}
 		} else {
@@ -164,8 +149,8 @@ func KeyEnterForm(m model) (tea.Model, tea.Cmd) {
 }
 
 func KeyEnterCommand(m model) (tea.Model, tea.Cmd) {
-	m.query.result, m.query.resultLocations = cocommands.ParseCommand(m.query.query)
-	m.resultField.SetValue(m.query.result[m.resultIndex])
+	m.query.Result, m.query.ResultLocations = cocommands.ParseCommand(m.query.Query)
+	m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	return m, nil
 }
 
@@ -174,8 +159,8 @@ func KeyEnterCommand(m model) (tea.Model, tea.Cmd) {
 ** @description: Runs the selected query. 
 */
 func KeyEnter(m model) (tea.Model, tea.Cmd) {
-	m.resultIndex = 0
-	m.query.query = m.queryField.Value()
+	m.indecies.ResultIndex = 0
+	m.query.Query = m.queryField.Value()
 	m.queryField.Reset()
 	if !m.commandMode && !m.formMode {
 		return KeyEnterSearch(m)
@@ -194,12 +179,12 @@ func KeyEnter(m model) (tea.Model, tea.Cmd) {
 func KeyBack(m model) (tea.Model, tea.Cmd) {
 	m.queryField.Reset()
 	m.resultField.Reset()
-	if m.resultIndex > 0 {
-		m.resultIndex = (m.resultIndex - 1) % len(m.query.result)
+	if m.indecies.ResultIndex > 0 {
+		m.indecies.ResultIndex = (m.indecies.ResultIndex - 1) % len(m.query.Result)
 	} else {
-		m.resultIndex = len(m.query.result) - 1
+		m.indecies.ResultIndex = len(m.query.Result) - 1
 	}
-	m.resultField.SetValue(m.query.result[m.resultIndex])
+	m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	return m, nil
 } 
 
@@ -210,8 +195,8 @@ func KeyBack(m model) (tea.Model, tea.Cmd) {
 func KeyForward(m model) (tea.Model, tea.Cmd) {
 	m.queryField.Reset()
 	m.resultField.Reset()
-	m.resultIndex = (m.resultIndex + 1) % len(m.query.result)
-	m.resultField.SetValue(m.query.result[m.resultIndex])
+	m.indecies.ResultIndex = (m.indecies.ResultIndex + 1) % len(m.query.Result)
+	m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	return m, nil
 } 
 
@@ -221,10 +206,10 @@ func KeyForward(m model) (tea.Model, tea.Cmd) {
 */
 func KeyTab(m model) (tea.Model, tea.Cmd) {
 	if !m.commandMode && !m.formMode {
-		m.queryIndex = (m.queryIndex + 1) % len(m.query.queryType)
-		m.queryStyle = QueryStyle((m.queryIndex % 5) + 10)
+		m.indecies.QueryIndex = (m.indecies.QueryIndex + 1) % len(m.query.QueryType)
+		m.queryStyle = QueryStyle((m.indecies.QueryIndex % 5) + 10)
 	} else if m.formMode {
-		m.contextIndex = (m.contextIndex + 1) % 2 
+		m.indecies.ContextIndex = (m.indecies.ContextIndex + 1) % 2 
 	}
 	return m, nil
 }
@@ -234,14 +219,19 @@ func KeyTab(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches to the types of info boxes in explore mode 
 */
 func KeyCtrlG(m model) (tea.Model, tea.Cmd) {
-	if m.queryIndex == 2 {
-		m.infoIndex = (m.infoIndex + 1) % len(coparse.InfoBoxCategories) // temporary like this
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
-		m.resultField.SetValue(m.query.result[m.resultIndex])
-	} else if m.queryIndex == 3 {
-		m.infoIndex = (m.infoIndex + 1) % len(coparse.InfoBoxCategories) // temporary like this
-		m.query.result, m.query.resultLocations = codependencies.Show(m.infoIndex)
-		m.resultField.SetValue(m.query.result[m.resultIndex])
+	categoryContext := coutils.SubsetSlice(coparse.ContextCategories, m.contextCategories)
+	if m.indecies.QueryIndex == 2 {
+		m.indecies.InfoIndex = (m.indecies.InfoIndex + 1) % len(coparse.InfoBoxCategories) 
+		m.query.Result, m.query.ResultLocations = coexplore.Show(fullTree, 0, 5, m.query.Query, m.viewDirOnly, m.indecies.InfoIndex)
+		m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
+	} else if m.indecies.QueryIndex == 3 {
+		m.indecies.InfoIndex = (m.indecies.InfoIndex + 1) % len(coparse.InfoBoxCategories)
+		m.query.Result, m.query.ResultLocations = codependencies.Show(m.indecies.InfoIndex, rootFiles, m.query.Query)
+		m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
+	} else if m.indecies.QueryIndex == 4 {
+		m.indecies.FileViewIndex = (m.indecies.FileViewIndex + 1) % 2 
+		m.query.Result, m.query.ResultLocations = cofile.Show(m.query.Query, m.indecies.FileViewIndex, categoryContext)
+		m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	}
 	return m, nil
 }
@@ -251,10 +241,10 @@ func KeyCtrlG(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches between file and directory view 
 */
 func KeyToggleDir(m model) (tea.Model, tea.Cmd) {
-	if m.queryIndex == 2 {
+	if m.indecies.QueryIndex == 2 {
 		m.viewDirOnly = !m.viewDirOnly
-		m.query.result, m.query.resultLocations = coexplore.Show(fullTree, 0, 5, m.query.query, m.viewDirOnly, m.infoIndex)
-		m.resultField.SetValue(m.query.result[m.resultIndex])
+		m.query.Result, m.query.ResultLocations = coexplore.Show(fullTree, 0, 5, m.query.Query, m.viewDirOnly, m.indecies.InfoIndex)
+		m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	}
 	return m, nil
 }
@@ -266,16 +256,16 @@ func KeyCtrlF(m model) (tea.Model, tea.Cmd) {
 
 func KeyUp(m model) (tea.Model, tea.Cmd) {
 	if m.formMode { 
-		m.formIndex = (m.formIndex + 1) % len(coparse.ContextCategories)
+		m.indecies.FormIndex = (m.indecies.FormIndex + 1) % len(coparse.ContextCategories)
 	}
 	return m, nil
 }
 
 func KeyDown(m model) (tea.Model, tea.Cmd) {
 	if m.formMode { 
-		m.formIndex = (m.formIndex - 1) % len(coparse.ContextCategories)
-		if m.formIndex < 0 {
-			m.formIndex = len(coparse.ContextCategories) - 1
+		m.indecies.FormIndex = (m.indecies.FormIndex - 1) % len(coparse.ContextCategories)
+		if m.indecies.FormIndex < 0 {
+			m.indecies.FormIndex = len(coparse.ContextCategories) - 1
 		}
 	}
 	return m, nil
@@ -286,14 +276,14 @@ func KeyDown(m model) (tea.Model, tea.Cmd) {
 ** @description: Switches to command mode 
 */
 func KeyColon(m model) (tea.Model, tea.Cmd) {
-	m.resultIndex = 0
-	m.query.result, m.query.resultLocations = []string{""}, []string{"None"} 
-	m.resultField.SetValue(m.query.result[m.resultIndex])
+	m.indecies.ResultIndex = 0
+	m.query.Result, m.query.ResultLocations = []string{""}, []string{"None"} 
+	m.resultField.SetValue(m.query.Result[m.indecies.ResultIndex])
 	m.commandMode = !m.commandMode
 	if m.commandMode {
 		m.queryStyle = QueryStyle(25)
 	} else {
-		m.queryStyle = QueryStyle((m.queryIndex % 5) + 10)
+		m.queryStyle = QueryStyle((m.indecies.QueryIndex % 5) + 10)
 	}
 	m.queryField.Focus()
 	return m, nil
@@ -328,9 +318,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return KeyBack(m)
 				case "ctrl+k":
 					return KeyForward(m)
-				case "k":
+				case "up": 
 					return KeyDown(m)
-				case "j":
+				case "down": 
 					return KeyUp(m)
 				case "tab":
 					return KeyTab(m)
@@ -350,7 +340,7 @@ func formViewCategories(m model) string {
 	s := strings.Builder{}
 	s.WriteString("\n\t1   Select categories:\n\n")
 	for i := 0; i < len(coparse.ContextCategories); i++ {
-		if m.formIndex == i && m.contextIndex == 0 {
+		if m.indecies.FormIndex == i && m.indecies.ContextIndex == 0 {
 			s.WriteString("\t[X] ")
 		} else if coutils.ContainsInt(m.contextCategories, i) {
 			s.WriteString("\t[x] ")	
@@ -367,7 +357,7 @@ func formViewComment(m model) string {
 	s := strings.Builder{}
 	s.WriteString("\n\t2   Include comments:\n\n")
 	for i := 0; i < len(commentCategories); i++ {
-		if m.formIndex == i && m.contextIndex == 1 {
+		if m.indecies.FormIndex == i && m.indecies.ContextIndex == 1 {
 			s.WriteString("\t[X] ")
 		} else if m.contextComment[i] == 1 {
 			s.WriteString("\t[x] ")	
@@ -405,13 +395,12 @@ func searchView(m model, title string) string {
 				m.resultStyle.InputField.Render(m.resultField.View()),
 				lipgloss.JoinHorizontal(
 					lipgloss.Left,
-					m.query.resultLocations[m.resultIndex],
+					m.query.ResultLocations[m.indecies.ResultIndex],
 					" | ",
-					strconv.Itoa(m.resultIndex+1),
+					strconv.Itoa(m.indecies.ResultIndex+1),
 					"/",
-					strconv.Itoa(len(m.query.result)),
+					strconv.Itoa(len(m.query.Result)),
 					" | press ctrl+c to quit | press ctrl+f for settings",
-					strconv.FormatBool(	m.commandMode),
 				),
 			),
 		),
@@ -423,7 +412,7 @@ func searchView(m model, title string) string {
 ** @description: Returns the layout/placement of the visual elements of the TUI.
 */
 func (m model) View() string {
-	title := m.query.queryType[m.queryIndex]
+	title := m.query.QueryType[m.indecies.QueryIndex]
 	if m.commandMode {
 		title = "command mode"
 	}
@@ -437,8 +426,9 @@ func (m model) View() string {
 // runner function
 
 func main() {
-	queryTypes := []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search", "Line search"}
-	query := Query{"", []string{"None"}, []string{"None"}, queryTypes}
+	fmt.Println("Codis (alpha version). Last updated: January 2024 By Timo Kats")
+	queryTypes := []string{"Quick search", "Fuzzy search", "Explorative search", "Dependency search", "File view"}
+	query := cotypes.Query{"", []string{"None"}, []string{"None"}, queryTypes}
 	m := New(query)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

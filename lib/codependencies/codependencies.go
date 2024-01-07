@@ -1,3 +1,9 @@
+/* 
+** @name: codependencies 
+** @author: Timo Kats
+** @description: Returns an overview of the file dependencies in the project. 
+*/
+
 package codependencies
 
 import (
@@ -22,12 +28,14 @@ func selectInfoBox(filepath string, line string, infoIndex int) string {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsObject[coparse.CurrentDirectory + filepath]))
 	} else if infoIndex == 3 {
 		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.TypeCountsDomain[coparse.CurrentDirectory + filepath]))
+	} else if infoIndex == 4 {
+		return coutils.FormatInfoBox(line, strconv.Itoa(coparse.QueryCounts[coparse.CurrentDirectory + filepath]))
 	} else {
 		return "None"
 	}
 }
 
-func getRootFiles() []string {
+func GetRootFiles() []string {
 	rootFiles := []string{}
 	for rootFile, _ := range coparse.Imports {
 		unique := true
@@ -79,16 +87,30 @@ func splitDependencyTree(dependencyTree string, infoIndex int) ([]string, []stri
 	return pages, locations
 }
 
-func Show(infoIndex int) ([]string, []string) {
-	dependencyTree = ""
+func queryRootFile(rootFiles []string, query string) string {
+	for _, rootFile := range rootFiles {
+		if strings.Contains(rootFile, query) && len(query) > 0 {
+			return rootFile
+		}
+	}
+	return ""
+}
+
+func Show(infoIndex int, rootFiles []string, query string) ([]string, []string) {
   id = 0
+	dependencyTree = ""
 	idString := strconv.Itoa(id)
-	rootFiles := getRootFiles()
-	if len(rootFiles) > 0 {
+	queriedRootFile := queryRootFile(rootFiles, query)
+	if queriedRootFile == "" && len(rootFiles) > 0 {
 		for _, rootFile := range rootFiles {
+			idString = strconv.Itoa(id)
 			dependencyTree += idString + coutils.ResponsiveTab(idString) + "|> " + rootFile + "\n"
 			formatImports(rootFile, "\t", infoIndex)
+			id += 1
 		}
+	} else {
+		dependencyTree += idString + coutils.ResponsiveTab(idString) + "|> " + queriedRootFile + "\n"
+		formatImports(queriedRootFile, "\t", infoIndex)
 	}
 	return splitDependencyTree(dependencyTree, infoIndex)
 }

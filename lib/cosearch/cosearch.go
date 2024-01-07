@@ -70,6 +70,7 @@ func computeFuzzyScore(line string, query string) int {
 ** @description: Returns lines that contain a subquery. 
 */
 func BasicQuery(query string, contextCategories []string, contextComment bool) ([]string, []string) {
+  coparse.QueryCounts = coparse.ReturnEmptyQueryResults()
   var reQuery, err = regexp.Compile(query)
   results, locations := []string{}, []string{}
   if err != nil {
@@ -80,24 +81,10 @@ func BasicQuery(query string, contextCategories []string, contextComment bool) (
 	    if reQuery.MatchString(coparse.LabeledRows[key]) {
 	      results = append(results, formatResult(index, coparse.LabeledRows, coparse.OrderedKeys))
 	      locations = append(locations, key.Filename + ", line " + strconv.Itoa(key.Linenumber))
+	      coparse.QueryCounts[key.FilePath] += 1
 	    }
 	  }
 	}
-	if len(results) == 0 {
-	  return []string{"None"}, []string{"None"}
-	} else {
-	  return results, locations
-	}
-}
-
-func BasicQueryTest(query string) ([]string, []string) {
-  results, locations := []string{}, []string{}
-  if _, ok := coparse.InvertedIndex[query]; ok {
-    for _, label := range coparse.InvertedIndex[query] {
-	    results = append(results, formatResult(label.Index, coparse.LabeledRows, coparse.OrderedKeys))
-	    locations = append(locations, label.Filename)
-    }
-  }
 	if len(results) == 0 {
 	  return []string{"None"}, []string{"None"}
 	} else {
@@ -110,12 +97,14 @@ func BasicQueryTest(query string) ([]string, []string) {
 ** @description: Returns the top (20) lines with the highest fuzzy scores.  
 */
 func FuzzyQuery(query string, contextCategories []string, contextComment bool) ([]string, []string) {
+  coparse.QueryCounts = coparse.ReturnEmptyQueryResults()
   results, locations := []string{}, []string{}
   fuzzyResults := []cotypes.RowLabel{}
   threshold := int(float64(len(query))/2.0)
   for _, key := range coparse.OrderedKeys {
 	  if (len(contextCategories) == 0 || coutils.ContainsString(contextCategories, key.Category)) && !(key.HasComment && !contextComment) {
       if computeFuzzyScore(coparse.LabeledRows[key], query) > threshold { 
+	      coparse.QueryCounts[key.FilePath] += 1
         fuzzyResults = append(fuzzyResults, key)
       }
     }
@@ -131,3 +120,19 @@ func FuzzyQuery(query string, contextCategories []string, contextComment bool) (
   return results, locations 
 }
 
+/* not for this version
+func BasicQueryTest(query string) ([]string, []string) {
+  results, locations := []string{}, []string{}
+  if _, ok := coparse.InvertedIndex[query]; ok {
+    for _, label := range coparse.InvertedIndex[query] {
+	    results = append(results, formatResult(label.Index, coparse.LabeledRows, coparse.OrderedKeys))
+	    locations = append(locations, label.Filename)
+    }
+  }
+	if len(results) == 0 {
+	  return []string{"None"}, []string{"None"}
+	} else {
+	  return results, locations
+	}
+}
+*/
